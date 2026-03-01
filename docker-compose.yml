@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: shortener-app
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/shortener
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - shortener-net
+
+  postgres:
+    image: postgres:18-alpine
+    container_name: shortener-db
+    environment:
+      - POSTGRES_DB=shortener
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - shortener-net
+
+  redis:
+    image: redis:8-alpine
+    container_name: shortener-redis
+    networks:
+      - shortener-net
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.81.0-alpine
+    container_name: shortener-redis-exporter
+    environment:
+      - REDIS_ADDR=redis:6379
+    ports:
+      - "9121:9121"
+    networks:
+      - shortener-net
+
+  prometheus:
+    image: prom/prometheus:v3.10.0
+    container_name: shortener-prometheus
+    volumes:
+      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - shortener-net
+
+  grafana:
+    image: grafana/grafana:12.3.4
+    container_name: shortener-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+    volumes:
+      - ./infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - shortener-net
+
+volumes:
+  pgdata:
+
+networks:
+  shortener-net:
+    driver: bridge

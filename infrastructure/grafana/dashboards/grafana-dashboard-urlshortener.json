@@ -1,0 +1,78 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Доля попаданий в кэш (за 5м)",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(cache_hit_total[5m])) / (sum(rate(cache_hit_total[5m])) + sum(rate(cache_miss_total[5m]))) * 100",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "options": { "reduceOptions": { "values": false, "calcs": ["last"], "fields": "" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Попадания в кэш (rate, per sec)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        {
+          "expr": "rate(cache_hit_total[5m])",
+          "legendFormat": "cache hits",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(cache_miss_total[5m])",
+          "legendFormat": "cache misses",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Ошибки Redis (счётчик)",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(redis_errors_total[5m])",
+          "legendFormat": "redis errors/sec",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Число продлений expiry (успех/попытки)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        {
+          "expr": "rate(expiry_extend_success_total[5m])",
+          "legendFormat": "extend success",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(expiry_extend_attempt_total[5m])",
+          "legendFormat": "extend attempts",
+          "refId": "B"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["urlshortener"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "URL Shortener — Обзор",
+  "uid": "urlshortener-overview"
+}
