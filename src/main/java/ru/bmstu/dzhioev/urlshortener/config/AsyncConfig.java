@@ -7,10 +7,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 /**
- * Конфигурация пула потоков для асинхронных задач.
- * Настроен размер пула, максимальный размер и очередь.
+ * Конфигурация пулов потоков для асинхронных задач.
  */
 @Configuration
 @EnableAsync
@@ -20,10 +20,11 @@ public class AsyncConfig {
     @Bean(name = "taskExecutor")
     public Executor taskExecutor() {
         ThreadPoolTaskExecutor exec = new ThreadPoolTaskExecutor();
-        exec.setCorePoolSize(10);
-        exec.setMaxPoolSize(50);
-        exec.setQueueCapacity(500);
+        exec.setCorePoolSize(20);                 // увеличен с 10
+        exec.setMaxPoolSize(100);                 // увеличен с 50
+        exec.setQueueCapacity(1000);               // увеличен с 500
         exec.setThreadNamePrefix("async-exec-");
+        exec.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy()); // задача выполняется в вызывающем потоке при переполнении
         exec.initialize();
         return exec;
     }

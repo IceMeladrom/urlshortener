@@ -51,6 +51,7 @@ services:
     container_name: shortener-prometheus
     volumes:
       - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/prometheus/alerts:/etc/prometheus/alerts:ro
     ports:
       - "9090:9090"
     networks:

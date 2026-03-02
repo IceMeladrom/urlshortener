@@ -1,5 +1,10 @@
 server:
   port: 8080
+  tomcat:
+    max-threads: 200               # максимум потоков для обработки запросов
+    max-connections: 10000          # максимум одновременных соединений
+    connection-timeout: 5000        # таймаут соединения в мс
+    accept-count: 100               # размер очереди ожидающих соединений
 
 spring:
   application:
@@ -9,6 +14,12 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 50          # максимальный пул соединений к БД
+      minimum-idle: 10                # минимум простаивающих соединений
+      connection-timeout: 30000       # таймаут получения соединения
+      idle-timeout: 600000             # таймаут простоя (10 минут)
+      max-lifetime: 1800000            # макс. время жизни соединения (30 минут)
   jpa:
     hibernate:
       ddl-auto: validate
@@ -20,6 +31,14 @@ spring:
     redis:
       host: ${SPRING_REDIS_HOST:localhost}
       port: ${SPRING_REDIS_PORT:6379}
+      lettuce:
+        pool:
+          max-active: 20               # максимум соединений в пуле
+          max-idle: 10                  # максимум простаивающих
+          min-idle: 5                    # минимум простаивающих
+          max-wait: 5000                  # таймаут ожидания соединения
+        metrics:
+          enabled: true
 
 management:
   endpoints:
@@ -29,6 +48,13 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+    export:
+      prometheus:
+        enabled: true
+    enable:
+      jdbc: true
+      hikaricp: true
+      lettuce: true
 
 # Параметры приложения
 app:

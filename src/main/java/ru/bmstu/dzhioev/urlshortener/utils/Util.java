@@ -1,37 +1,65 @@
 package ru.bmstu.dzhioev.urlshortener.utils;
 
+import java.math.BigInteger;
+import java.security.SecureRandom;
+
 /**
- * Утилита для кодирования в base62 с минимальной длиной.
- * Метод прост и детерминирован: 0 -> "aaaaa0" (в зависимости от MIN_CODE_LENGTH).
+ * Утилитарный класс для генерации коротких кодов.
+ * Использует криптостойкий генератор случайных чисел и Base62.
  */
-public class Util {
+public final class Util {
 
     private static final char[] BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".toCharArray();
-    private static final int MIN_CODE_LENGTH = 6;
+    private static final int CODE_LENGTH = 7;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
-    public static String encodeBase62(long value) {
-        if (value == 0) {
-            return pad("0");
-        }
-        StringBuilder sb = new StringBuilder();
-        long v = value;
-        while (v > 0) {
-            int digit = (int) (v % 62);
-            sb.append(BASE62[digit]);
-            v = v / 62;
-        }
-        return pad(sb.reverse().toString());
+    private Util() {
+        // запрещаем создание экземпляров
     }
 
     /**
-     * Дополняем слева символами 'a', чтобы обеспечить минимальную длину.
-     * Можно поменять символ дополнения при желании.
+     * Генерирует случайный короткий код длиной 7 символов из алфавита Base62.
+     * Использует SecureRandom, что обеспечивает потокобезопасность.
+     *
+     * @return строка длиной 7 символов
      */
-    private static String pad(String code) {
-        if (code.length() >= MIN_CODE_LENGTH) return code;
+    public static String generateShortCode() {
+        // Генерируем 48 бит случайности (6 байт) — этого достаточно для 62^7 комбинаций
+        byte[] bytes = new byte[6];
+        SECURE_RANDOM.nextBytes(bytes);
+
+        BigInteger bi = new BigInteger(1, bytes);
+        return toBase62(bi);
+    }
+
+    /**
+     * Преобразует BigInteger в строку Base62 фиксированной длины.
+     * Если длина получается меньше CODE_LENGTH, дополняет слева нулями ('0').
+     */
+    private static String toBase62(BigInteger value) {
+        BigInteger base = BigInteger.valueOf(62);
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < MIN_CODE_LENGTH - code.length(); i++) sb.append('a');
-        sb.append(code);
-        return sb.toString();
+
+        while (value.compareTo(BigInteger.ZERO) > 0) {
+            BigInteger[] divmod = value.divideAndRemainder(base);
+            sb.append(BASE62[divmod[1].intValue()]);
+            value = divmod[0];
+        }
+
+        // Переворачиваем строку, т.к. собирали с младших разрядов
+        String reversed = sb.reverse().toString();
+
+        // Если длина превышает CODE_LENGTH, обрезаем (маловероятно при 6 байтах)
+        if (reversed.length() > CODE_LENGTH) {
+            return reversed.substring(0, CODE_LENGTH);
+        }
+
+        // Дополняем слева нулями до нужной длины
+        StringBuilder result = new StringBuilder();
+        for (int i = reversed.length(); i < CODE_LENGTH; i++) {
+            result.append('0');
+        }
+        result.append(reversed);
+        return result.toString();
     }
 }

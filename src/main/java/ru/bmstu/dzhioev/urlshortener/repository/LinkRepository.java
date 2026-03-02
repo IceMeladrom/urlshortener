@@ -3,6 +3,7 @@ package ru.bmstu.dzhioev.urlshortener.repository;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import ru.bmstu.dzhioev.urlshortener.entity.Link;
 
@@ -29,11 +30,14 @@ public interface LinkRepository extends JpaRepository<Link, Long> {
     void incrementClickCount(String shortCode);
 
     /**
-     * Удалить просроченные ссылки.
+     * Удалить просроченные ссылки пачками.
+     * @param now текущее время
+     * @param limit максимальное количество удаляемых записей за один вызов
+     * @return количество удалённых записей
      */
     @Modifying
-    @Query("DELETE FROM Link l WHERE l.expiresAt < :now")
-    void deleteExpired(Instant now);
+    @Query(value = "DELETE FROM links WHERE id IN (SELECT id FROM links WHERE expires_at < :now LIMIT :limit)", nativeQuery = true)
+    int deleteExpiredBatch(@Param("now") Instant now, @Param("limit") int limit);
 
     /**
      * Условное продление времени действия: обновит expiresAt только если текущее меньше newExpiresAt.

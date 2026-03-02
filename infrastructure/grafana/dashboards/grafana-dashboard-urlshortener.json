@@ -1,78 +1,1090 @@
 {
-  "annotations": { "list": [] },
+  "__inputs": [],
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "8.5.0"
+    },
+    {
+      "type": "prometheus",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "2.0.0"
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
+        "type": "dashboard"
+      }
+    ]
+  },
   "editable": true,
-  "gnetId": null,
+  "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": null,
   "links": [],
   "panels": [
     {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 30,
+      "panels": [],
+      "title": "Общая информация",
+      "type": "row"
+    },
+    {
+      "id": 32,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
       "type": "stat",
-      "title": "Доля попаданий в кэш (за 5м)",
-      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 0 },
+      "title": "Время работы",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
       "targets": [
         {
-          "expr": "sum(rate(cache_hit_total[5m])) / (sum(rate(cache_hit_total[5m])) + sum(rate(cache_miss_total[5m]))) * 100",
-          "legendFormat": "",
+          "expr": "time() - process_start_time_seconds{application=\"urlshortener\"}",
+          "format": "time_series",
+          "instant": true,
           "refId": "A"
         }
       ],
-      "options": { "reduceOptions": { "values": false, "calcs": ["last"], "fields": "" } }
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
     },
     {
-      "type": "timeseries",
-      "title": "Попадания в кэш (rate, per sec)",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "id": 33,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "type": "stat",
+      "title": "Активные потоки",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "targets": [
         {
-          "expr": "rate(cache_hit_total[5m])",
-          "legendFormat": "cache hits",
+          "expr": "jvm_threads_live_threads{application=\"urlshortener\"}",
+          "format": "time_series",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 34,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
+      "type": "stat",
+      "title": "Использование кучи",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes{application=\"urlshortener\", area=\"heap\"}",
+          "format": "time_series",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 35,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "type": "stat",
+      "title": "Сборок мусора (young)",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(jvm_gc_pause_seconds_count{application=\"urlshortener\", gc=\"G1 Young Generation\"}[1m])",
+          "format": "time_series",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 36,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "type": "stat",
+      "title": "Redis доступен",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "redis_available{application=\"urlshortener\"}",
+          "format": "time_series",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 37,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "type": "stat",
+      "title": "Ошибки Redis (соединения)",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(redis_connection_failures_total{application=\"urlshortener\"}[1m])",
+          "format": "time_series",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "id": 38,
+      "panels": [],
+      "title": "HTTP-метрики",
+      "type": "row"
+    },
+    {
+      "id": 2,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "type": "timeseries",
+      "title": "RPS по эндпоинтам",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineInterpolation": "smooth",
+            "showPoints": "never"
+          },
+          "unit": "reqps"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "POST /api/v1/shorten"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GET /{shortCode}"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"urlshortener\", uri=\"/api/v1/shorten\"}[1m]))",
+          "legendFormat": "POST /api/v1/shorten",
           "refId": "A"
         },
         {
-          "expr": "rate(cache_miss_total[5m])",
-          "legendFormat": "cache misses",
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"urlshortener\", uri=\"/api/v1/{shortCode}\"}[1m]))",
+          "legendFormat": "GET /{shortCode}",
           "refId": "B"
         }
-      ]
-    },
-    {
-      "type": "timeseries",
-      "title": "Ошибки Redis (счётчик)",
-      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
-      "targets": [
-        {
-          "expr": "rate(redis_errors_total[5m])",
-          "legendFormat": "redis errors/sec",
-          "refId": "A"
+      ],
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
         }
-      ]
+      }
     },
     {
+      "id": 4,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
       "type": "timeseries",
-      "title": "Число продлений expiry (успех/попытки)",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "title": "Задержка (p95) по эндпоинтам",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineInterpolation": "smooth",
+            "showPoints": "never"
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
       "targets": [
         {
-          "expr": "rate(expiry_extend_success_total[5m])",
-          "legendFormat": "extend success",
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"urlshortener\", uri=\"/api/v1/shorten\"}[1m])) by (le)) * 1000",
+          "legendFormat": "POST /shorten",
           "refId": "A"
         },
         {
-          "expr": "rate(expiry_extend_attempt_total[5m])",
-          "legendFormat": "extend attempts",
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"urlshortener\", uri=\"/api/v1/{shortCode}\"}[1m])) by (le)) * 1000",
+          "legendFormat": "GET /{shortCode}",
           "refId": "B"
         }
-      ]
+      ],
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "type": "timeseries",
+      "title": "Ошибки 5xx (rate)",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineInterpolation": "smooth",
+            "showPoints": "never"
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"urlshortener\", status=~\"5..\"}[1m]))",
+          "legendFormat": "5xx total",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "type": "timeseries",
+      "title": "Процент ошибок 5xx",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineInterpolation": "smooth",
+            "showPoints": "never"
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "(sum(rate(http_server_requests_seconds_count{application=\"urlshortener\", status=~\"5..\"}[1m])) / sum(rate(http_server_requests_seconds_count{application=\"urlshortener\"}[1m]))) * 100",
+          "legendFormat": "% errors",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "id": 39,
+      "panels": [],
+      "title": "Бизнес-метрики",
+      "type": "row"
+    },
+    {
+      "id": 8,
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 23
+      },
+      "type": "timeseries",
+      "title": "Cache hit ratio",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineInterpolation": "smooth",
+            "showPoints": "never"
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(cache_hit_total[1m])) / (sum(rate(cache_hit_total[1m])) + sum(rate(cache_miss_total[1m]))) * 100",
+          "legendFormat": "hit ratio",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 6,
+        "y": 23
+      },
+      "type": "timeseries",
+      "title": "Cache ops (rate)",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineInterpolation": "smooth",
+            "showPoints": "never"
+          },
+          "unit": "ops"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "hit"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "miss"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "set"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "rate(cache_hit_total[1m])",
+          "legendFormat": "hit",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(cache_miss_total[1m])",
+          "legendFormat": "miss",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(cache_set_total[1m])",
+          "legendFormat": "set",
+          "refId": "C"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 23
+      },
+      "type": "timeseries",
+      "title": "Клики (rate)",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineInterpolation": "smooth",
+            "showPoints": "never"
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(click_increment_total[1m])",
+          "legendFormat": "clicks",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 23
+      },
+      "type": "timeseries",
+      "title": "Продления срока",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineInterpolation": "smooth",
+            "showPoints": "never"
+          },
+          "unit": "ops"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "attempt"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "success"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "error"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "skipped"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "gray",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "rate(expiry_extend_attempt_total[1m])",
+          "legendFormat": "attempt",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(expiry_extend_success_total[1m])",
+          "legendFormat": "success",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(expiry_extend_error_total[1m])",
+          "legendFormat": "error",
+          "refId": "C"
+        },
+        {
+          "expr": "rate(expiry_extend_skipped_total[1m])",
+          "legendFormat": "skipped",
+          "refId": "D"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 31
+      },
+      "id": 40,
+      "panels": [],
+      "title": "Состояние пулов и БД",
+      "type": "row"
+    },
+    {
+      "id": 12,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 32
+      },
+      "type": "timeseries",
+      "title": "Пул соединений HikariCP",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineInterpolation": "smooth",
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "hikaricp_active_connections{application=\"urlshortener\"}",
+          "legendFormat": "active",
+          "refId": "A"
+        },
+        {
+          "expr": "hikaricp_idle_connections{application=\"urlshortener\"}",
+          "legendFormat": "idle",
+          "refId": "B"
+        },
+        {
+          "expr": "hikaricp_pending_threads{application=\"urlshortener\"}",
+          "legendFormat": "pending",
+          "refId": "C"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 32
+      },
+      "type": "timeseries",
+      "title": "Пул Redis (Lettuce)",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineInterpolation": "smooth",
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "lettuce_pool_active{application=\"urlshortener\"}",
+          "legendFormat": "active",
+          "refId": "A"
+        },
+        {
+          "expr": "lettuce_pool_idle{application=\"urlshortener\"}",
+          "legendFormat": "idle",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 32
+      },
+      "type": "timeseries",
+      "title": "Redis errors (total rate)",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineInterpolation": "smooth",
+            "showPoints": "never"
+          },
+          "unit": "errps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(redis_errors_total{application=\"urlshortener\"}[1m])",
+          "legendFormat": "redis errors",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        }
+      }
+    },
+    {
+      "id": 15,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 40
+      },
+      "type": "timeseries",
+      "title": "Redis recovery events",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineInterpolation": "smooth",
+            "showPoints": "never"
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(redis_recovery_total[1m])",
+          "legendFormat": "recovery",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 48
+      },
+      "id": 41,
+      "panels": [],
+      "title": "Метрики Redis (экспортёр)",
+      "type": "row"
+    },
+    {
+      "id": 16,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 49
+      },
+      "type": "timeseries",
+      "title": "Redis memory",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineInterpolation": "smooth",
+            "showPoints": "never"
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "redis_memory_used_bytes{instance=\"redis-exporter:9121\"}",
+          "legendFormat": "used",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        }
+      }
+    },
+    {
+      "id": 17,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 49
+      },
+      "type": "timeseries",
+      "title": "Redis connected clients",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineInterpolation": "smooth",
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "redis_connected_clients{instance=\"redis-exporter:9121\"}",
+          "legendFormat": "clients",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        }
+      }
+    },
+    {
+      "id": 18,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 49
+      },
+      "type": "timeseries",
+      "title": "Redis commands/s",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineInterpolation": "smooth",
+            "showPoints": "never"
+          },
+          "unit": "cps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(redis_commands_processed_total{instance=\"redis-exporter:9121\"}[1m])",
+          "legendFormat": "commands",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        }
+      }
+    },
+    {
+      "id": 19,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 57
+      },
+      "type": "timeseries",
+      "title": "Redis keyspace hit ratio",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineInterpolation": "smooth",
+            "showPoints": "never"
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(redis_keyspace_hits_total{instance=\"redis-exporter:9121\"}[1m])) / (sum(rate(redis_keyspace_hits_total{instance=\"redis-exporter:9121\"}[1m])) + sum(rate(redis_keyspace_misses_total{instance=\"redis-exporter:9121\"}[1m]))) * 100",
+          "legendFormat": "hit ratio",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right"
+        }
+      }
     }
   ],
+  "refresh": "5s",
   "schemaVersion": 36,
   "style": "dark",
-  "tags": ["urlshortener"],
-  "templating": { "list": [] },
-  "time": { "from": "now-1h", "to": "now" },
+  "tags": [
+    "urlshortener",
+    "load-testing"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "",
-  "title": "URL Shortener — Обзор",
-  "uid": "urlshortener-overview"
+  "title": "URL Shortener — Load Testing (расширенный)",
+  "uid": "urlshortener-load",
+  "version": 1
 }
