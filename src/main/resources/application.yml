@@ -51,6 +51,10 @@ management:
     export:
       prometheus:
         enabled: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        jvm.gc.pause: true
 
 app:
   link-ttl-days: 7

@@ -7,7 +7,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -58,7 +57,6 @@ public class LinkService {
                     safeCacheLink(race.get());
                     return race.get();
                 }
-                log.info("Коллизия shortCode, попытка {}/{}", attempt, MAX_CREATE_ATTEMPTS);
                 if (attempt == MAX_CREATE_ATTEMPTS) {
                     throw new IllegalStateException("Не удалось создать ссылку после 5 попыток", ex);
                 }
@@ -73,6 +71,7 @@ public class LinkService {
             eventPublisher.publishEvent(new LinkAccessEvent(shortCode));
             return fromCache;
         }
+        // Если промахнулись или Redis лежит — идем в БД
         return getFromDatabase(shortCode);
     }
 
@@ -98,18 +97,24 @@ public class LinkService {
     }
 
     private Optional<String> getFromCache(String key) {
+        // Fast-fail (Сircuit Breaker). Если недавно Redis упал, даже не пытаемся ждать таймаут.
+        if (!redisHealthTracker.isAvailable()) {
+            return Optional.empty();
+        }
+
         try {
             String cached = redisTemplate.opsForValue().get(key);
             if (cached != null) {
                 meterRegistry.counter("cache.hit").increment();
                 redisTemplate.expire(key, linkTtlDays, TimeUnit.DAYS);
-                redisHealthTracker.markAvailable();
                 return Optional.of(cached);
             }
             meterRegistry.counter("cache.miss").increment();
             return Optional.empty();
-        } catch (RedisConnectionFailureException e) {
+        } catch (Exception e) { // Перехватываем ВСЕ ошибки Redis (вкл. QueryTimeoutException)
+            meterRegistry.counter("redis.errors").increment();
             redisHealthTracker.markUnavailable();
+            log.warn("Переход в fallback режим БД. Ошибка чтения Redis: {}", e.getMessage());
             return Optional.empty();
         }
     }
@@ -124,6 +129,9 @@ public class LinkService {
             return Optional.empty();
         }
 
+        // Если нашли в БД, пытаемся положить в кэш. 
+        // Это и есть наша "проба" (Probe): если Redis тем временем ожил,
+        // этот метод вернет healthTracker в состояние Available.
         safeCacheLink(link);
         eventPublisher.publishEvent(new LinkAccessEvent(shortCode));
         return Optional.of(link.getOriginalUrl());
@@ -134,9 +142,13 @@ public class LinkService {
         try {
             redisTemplate.opsForValue().set(key, link.getOriginalUrl(), linkTtlDays, TimeUnit.DAYS);
             meterRegistry.counter("cache.set").increment();
+
+            // Если мы дошли сюда без исключений, значит Redis жив!
             redisHealthTracker.markAvailable();
         } catch (Exception e) {
+            meterRegistry.counter("redis.errors").increment();
             redisHealthTracker.markUnavailable();
+            log.debug("Не удалось сохранить в Redis: {}", e.getMessage());
         }
     }
 
@@ -144,6 +156,7 @@ public class LinkService {
         try {
             redisTemplate.delete(key);
         } catch (Exception ignored) {
+            // Ошибки удаления просто игнорируем
         }
     }
 
@@ -153,11 +166,10 @@ public class LinkService {
             url = "http://" + url;
         }
         try {
-            // UriComponentsBuilder безопаснее и корректнее обрабатывает edge-кейсы
             return UriComponentsBuilder.fromUriString(url).build().normalize().toUriString();
         } catch (IllegalArgumentException e) {
-            log.warn("Нелегальный формат URL: {}", rawUrl);
             return url;
         }
     }
 }
+
