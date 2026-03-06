@@ -1,0 +1,463 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "title": "Overview",
+      "url": "/d/urlshortener-overview",
+      "type": "link",
+      "targetBlank": false
+    },
+    {
+      "title": "HTTP",
+      "url": "/d/urlshortener-http",
+      "type": "link",
+      "targetBlank": false
+    },
+    {
+      "title": "Business",
+      "url": "/d/urlshortener-business",
+      "type": "link",
+      "targetBlank": false
+    }
+  ],
+  "panels": [
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "Текущее состояние",
+      "type": "row"
+    },
+
+    {
+      "id": 2,
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "type": "stat",
+      "title": "HikariCP — активные соединения",
+      "description": "Жёлтый > 15, красный > 18 (из 20 максимум)",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "yellow", "value": 15   },
+              { "color": "red",    "value": 18   }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "hikaricp_active_connections{application=\"urlshortener\"}",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background"
+      }
+    },
+
+    {
+      "id": 3,
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "type": "stat",
+      "title": "HikariCP — ожидают соединения",
+      "description": "Должно быть 0. Красный > 3",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "yellow", "value": 1    },
+              { "color": "red",    "value": 3    }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "hikaricp_pending_threads{application=\"urlshortener\"}",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background"
+      }
+    },
+
+    {
+      "id": 4,
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "type": "stat",
+      "title": "Redis — используемая память",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": { "mode": "fixed", "fixedColor": "blue" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "redis_memory_used_bytes{instance=\"redis-exporter:9121\"}",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background"
+      }
+    },
+
+    {
+      "id": 5,
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "type": "stat",
+      "title": "Redis — подключённые клиенты",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "fixed", "fixedColor": "purple" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "redis_connected_clients{instance=\"redis-exporter:9121\"}",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background"
+      }
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 10,
+      "title": "HikariCP — пул соединений к БД",
+      "type": "row"
+    },
+
+    {
+      "id": 11,
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "type": "timeseries",
+      "title": "HikariCP — active / idle / pending",
+      "description": "pending > 0 означает что потоки ждут соединения — bottleneck БД",
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineInterpolation": "smooth", "showPoints": "never" }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "active" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "idle" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "pending" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "hikaricp_active_connections{application=\"urlshortener\"}",
+          "legendFormat": "active",
+          "refId": "A"
+        },
+        {
+          "expr": "hikaricp_idle_connections{application=\"urlshortener\"}",
+          "legendFormat": "idle",
+          "refId": "B"
+        },
+        {
+          "expr": "hikaricp_pending_threads{application=\"urlshortener\"}",
+          "legendFormat": "pending",
+          "refId": "C"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+      }
+    },
+
+    {
+      "id": 12,
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "type": "timeseries",
+      "title": "HikariCP — время ожидания соединения (p95)",
+      "description": "Время которое поток проводит в очереди ожидания свободного соединения",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "lineInterpolation": "smooth", "showPoints": "never" },
+          "color": { "mode": "fixed", "fixedColor": "orange" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(hikaricp_connection_acquired_nanos_bucket{application=\"urlshortener\"}[1m])) by (le)) / 1e6",
+          "legendFormat": "p95 wait ms",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+      }
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "id": 20,
+      "title": "Lettuce — пул соединений к Redis",
+      "type": "row"
+    },
+
+    {
+      "id": 21,
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "type": "timeseries",
+      "title": "Lettuce — active / idle соединения",
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineInterpolation": "smooth", "showPoints": "never" }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "active" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "idle" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "lettuce_command_active_connections{application=\"urlshortener\"}",
+          "legendFormat": "active",
+          "refId": "A"
+        },
+        {
+          "expr": "lettuce_command_idle_connections{application=\"urlshortener\"}",
+          "legendFormat": "idle",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+      }
+    },
+
+    {
+      "id": 22,
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "type": "timeseries",
+      "title": "Lettuce — latency p95 (команды Redis)",
+      "description": "Время выполнения команд Redis со стороны приложения",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "lineInterpolation": "smooth", "showPoints": "never" },
+          "color": { "mode": "fixed", "fixedColor": "purple" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(lettuce_command_completion_seconds_bucket{application=\"urlshortener\"}[1m])) by (le)) * 1000",
+          "legendFormat": "p95 latency ms",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+      }
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "id": 30,
+      "title": "Redis — метрики экспортёра",
+      "type": "row"
+    },
+
+    {
+      "id": 31,
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 24 },
+      "type": "timeseries",
+      "title": "Redis — память used / max",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "lineInterpolation": "smooth", "showPoints": "never" }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "used" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "max" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } },
+              { "id": "custom.lineStyle", "value": { "dash": [4, 4], "fill": "dash" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "redis_memory_used_bytes{instance=\"redis-exporter:9121\"}",
+          "legendFormat": "used",
+          "refId": "A"
+        },
+        {
+          "expr": "redis_memory_max_bytes{instance=\"redis-exporter:9121\"}",
+          "legendFormat": "max",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "last"] }
+      }
+    },
+
+    {
+      "id": 32,
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 24 },
+      "type": "timeseries",
+      "title": "Redis — команды/с и клиенты",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "lineInterpolation": "smooth", "showPoints": "never" }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "clients" },
+            "properties": [
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "commands/s" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "rate(redis_commands_processed_total{instance=\"redis-exporter:9121\"}[1m])",
+          "legendFormat": "commands/s",
+          "refId": "A"
+        },
+        {
+          "expr": "redis_connected_clients{instance=\"redis-exporter:9121\"}",
+          "legendFormat": "clients",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+      }
+    },
+
+    {
+      "id": 33,
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 24 },
+      "type": "timeseries",
+      "title": "Redis — keyspace hit ratio",
+      "description": "Должен коррелировать с cache hit ratio на Business дашборде",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": { "lineInterpolation": "smooth", "showPoints": "never" },
+          "color": { "mode": "fixed", "fixedColor": "green" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(redis_keyspace_hits_total{instance=\"redis-exporter:9121\"}[1m])) / (sum(rate(redis_keyspace_hits_total{instance=\"redis-exporter:9121\"}[1m])) + sum(rate(redis_keyspace_misses_total{instance=\"redis-exporter:9121\"}[1m]))) * 100",
+          "legendFormat": "hit ratio %",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "last"] }
+      }
+    }
+
+  ],
+  "refresh": "5s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["urlshortener", "load-testing"],
+  "templating": { "list": [] },
+  "time": { "from": "now-30m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "URL Shortener — Infrastructure",
+  "uid": "urlshortener-infra",
+  "version": 1
+}
+

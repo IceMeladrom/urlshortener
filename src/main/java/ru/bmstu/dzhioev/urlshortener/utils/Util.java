@@ -1,65 +1,31 @@
 package ru.bmstu.dzhioev.urlshortener.utils;
 
-import java.math.BigInteger;
-import java.security.SecureRandom;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Утилитарный класс для генерации коротких кодов.
- * Использует криптостойкий генератор случайных чисел и Base62.
+ * Генерация коротких кодов.
+ *
+ * ThreadLocalRandom — потокобезопасен без синхронизации (каждый поток
+ * работает со своим экземпляром), значительно быстрее SecureRandom
+ * под конкурентной нагрузкой. Для URL-кодов криптостойкость не нужна.
+ *
+ * 62^7 = ~3.5 триллиона комбинаций — вероятность коллизии пренебрежимо мала
+ * при разумном объёме данных.
  */
 public final class Util {
 
-    private static final char[] BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".toCharArray();
+    private static final char[] BASE62 =
+            "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".toCharArray();
     private static final int CODE_LENGTH = 7;
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
-    private Util() {
-        // запрещаем создание экземпляров
-    }
+    private Util() {}
 
-    /**
-     * Генерирует случайный короткий код длиной 7 символов из алфавита Base62.
-     * Использует SecureRandom, что обеспечивает потокобезопасность.
-     *
-     * @return строка длиной 7 символов
-     */
     public static String generateShortCode() {
-        // Генерируем 48 бит случайности (6 байт) — этого достаточно для 62^7 комбинаций
-        byte[] bytes = new byte[6];
-        SECURE_RANDOM.nextBytes(bytes);
-
-        BigInteger bi = new BigInteger(1, bytes);
-        return toBase62(bi);
-    }
-
-    /**
-     * Преобразует BigInteger в строку Base62 фиксированной длины.
-     * Если длина получается меньше CODE_LENGTH, дополняет слева нулями ('0').
-     */
-    private static String toBase62(BigInteger value) {
-        BigInteger base = BigInteger.valueOf(62);
-        StringBuilder sb = new StringBuilder();
-
-        while (value.compareTo(BigInteger.ZERO) > 0) {
-            BigInteger[] divmod = value.divideAndRemainder(base);
-            sb.append(BASE62[divmod[1].intValue()]);
-            value = divmod[0];
+        char[] code = new char[CODE_LENGTH];
+        ThreadLocalRandom rnd = ThreadLocalRandom.current();
+        for (int i = 0; i < CODE_LENGTH; i++) {
+            code[i] = BASE62[rnd.nextInt(BASE62.length)];
         }
-
-        // Переворачиваем строку, т.к. собирали с младших разрядов
-        String reversed = sb.reverse().toString();
-
-        // Если длина превышает CODE_LENGTH, обрезаем (маловероятно при 6 байтах)
-        if (reversed.length() > CODE_LENGTH) {
-            return reversed.substring(0, CODE_LENGTH);
-        }
-
-        // Дополняем слева нулями до нужной длины
-        StringBuilder result = new StringBuilder();
-        for (int i = reversed.length(); i < CODE_LENGTH; i++) {
-            result.append('0');
-        }
-        result.append(reversed);
-        return result.toString();
+        return new String(code);
     }
 }

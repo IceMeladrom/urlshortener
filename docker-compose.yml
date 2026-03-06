@@ -1,6 +1,7 @@
-version: '3.8'
+name: shortener-project
 
 services:
+
   app:
     build: .
     container_name: shortener-app
@@ -13,8 +14,16 @@ services:
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- --timeout=5 http://localhost:8080/actuator/health || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
     networks:
       - shortener-net
 
@@ -27,12 +36,24 @@ services:
       - POSTGRES_PASSWORD=postgres
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d shortener" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     networks:
       - shortener-net
 
   redis:
     image: redis:8-alpine
     container_name: shortener-redis
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
     networks:
       - shortener-net
 
@@ -43,6 +64,9 @@ services:
       - REDIS_ADDR=redis:6379
     ports:
       - "9121:9121"
+    depends_on:
+      redis:
+        condition: service_healthy
     networks:
       - shortener-net
 
@@ -54,6 +78,9 @@ services:
       - ./infrastructure/prometheus/alerts:/etc/prometheus/alerts:ro
     ports:
       - "9090:9090"
+    depends_on:
+      app:
+        condition: service_healthy
     networks:
       - shortener-net
 

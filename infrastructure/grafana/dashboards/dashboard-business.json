@@ -1,0 +1,418 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "title": "Overview",
+      "url": "/d/urlshortener-overview",
+      "type": "link",
+      "targetBlank": false
+    },
+    {
+      "title": "HTTP",
+      "url": "/d/urlshortener-http",
+      "type": "link",
+      "targetBlank": false
+    },
+    {
+      "title": "Infrastructure",
+      "url": "/d/urlshortener-infra",
+      "type": "link",
+      "targetBlank": false
+    }
+  ],
+  "panels": [
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "Текущее состояние",
+      "type": "row"
+    },
+
+    {
+      "id": 2,
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "type": "stat",
+      "title": "Cache hit ratio",
+      "description": "Жёлтый < 80%, красный < 50%",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": null },
+              { "color": "yellow", "value": 50   },
+              { "color": "green",  "value": 80   }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(cache_hit_total{application=\"urlshortener\"}[1m])) / (sum(rate(cache_hit_total{application=\"urlshortener\"}[1m])) + sum(rate(cache_miss_total{application=\"urlshortener\"}[1m]))) * 100",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background"
+      }
+    },
+
+    {
+      "id": 3,
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "type": "stat",
+      "title": "Редиректы (rate)",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "color": { "mode": "fixed", "fixedColor": "green" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(link_redirects_total{application=\"urlshortener\"}[1m])",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background"
+      }
+    },
+
+    {
+      "id": 4,
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "type": "stat",
+      "title": "Redis ошибки (rate)",
+      "description": "Жёлтый > 0.1/s, красный > 0.5/s",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "yellow", "value": 0.1  },
+              { "color": "red",    "value": 0.5  }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(redis_errors_total{application=\"urlshortener\"}[1m])",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background"
+      }
+    },
+
+    {
+      "id": 5,
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "type": "stat",
+      "title": "Продления срока — ошибки (rate)",
+      "description": "Должен быть близок к нулю",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "yellow", "value": 0.1  },
+              { "color": "red",    "value": 0.5  }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(expiry_extend_error_total{application=\"urlshortener\"}[1m])",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background"
+      }
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 10,
+      "title": "Кэш",
+      "type": "row"
+    },
+
+    {
+      "id": 11,
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "type": "timeseries",
+      "title": "Cache hit ratio",
+      "description": "Ниже 80% означает что кэш прогрет недостаточно или данные вытесняются",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": { "lineInterpolation": "smooth", "showPoints": "never" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red",    "value": null },
+              { "color": "yellow", "value": 50   },
+              { "color": "green",  "value": 80   }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(cache_hit_total{application=\"urlshortener\"}[1m])) / (sum(rate(cache_hit_total{application=\"urlshortener\"}[1m])) + sum(rate(cache_miss_total{application=\"urlshortener\"}[1m]))) * 100",
+          "legendFormat": "hit ratio %",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "min", "last"] }
+      }
+    },
+
+    {
+      "id": 12,
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "type": "timeseries",
+      "title": "Cache операции (rate)",
+      "description": "hit >> miss означает эффективный кэш. set ≈ miss — нормально",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "lineInterpolation": "smooth", "showPoints": "never" }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "hit" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "miss" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "set" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "rate(cache_hit_total{application=\"urlshortener\"}[1m])",
+          "legendFormat": "hit",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(cache_miss_total{application=\"urlshortener\"}[1m])",
+          "legendFormat": "miss",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(cache_set_total{application=\"urlshortener\"}[1m])",
+          "legendFormat": "set",
+          "refId": "C"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+      }
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "id": 20,
+      "title": "Редиректы",
+      "type": "row"
+    },
+
+    {
+      "id": 21,
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "type": "timeseries",
+      "title": "Редиректы (rate)",
+      "description": "Должен коррелировать с RPS GET /{shortCode} на HTTP дашборде",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "lineInterpolation": "smooth", "showPoints": "never" },
+          "color": { "mode": "fixed", "fixedColor": "green" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(link_redirects_total{application=\"urlshortener\"}[1m])",
+          "legendFormat": "redirects",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+      }
+    },
+
+    {
+      "id": 22,
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "type": "timeseries",
+      "title": "Redis ошибки (rate)",
+      "description": "Ненулевые значения означают проблемы с соединением к Redis",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "lineInterpolation": "smooth", "showPoints": "never" },
+          "color": { "mode": "fixed", "fixedColor": "red" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(redis_errors_total{application=\"urlshortener\"}[1m])",
+          "legendFormat": "redis errors",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+      }
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "id": 30,
+      "title": "Продления срока действия ссылок",
+      "type": "row"
+    },
+
+    {
+      "id": 31,
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+      "type": "timeseries",
+      "title": "Продления срока — все события (rate)",
+      "description": "attempt = попытка продления (получена блокировка в Redis). success = срок продлён. skipped = продление не нужно или Redis недоступен. error = ошибка при продлении",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "lineInterpolation": "smooth", "showPoints": "never" }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "attempt" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "success" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "skipped" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "gray", "mode": "fixed" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "error" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "rate(expiry_extend_attempt_total{application=\"urlshortener\"}[1m])",
+          "legendFormat": "attempt",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(expiry_extend_success_total{application=\"urlshortener\"}[1m])",
+          "legendFormat": "success",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(expiry_extend_skipped_total{application=\"urlshortener\"}[1m])",
+          "legendFormat": "skipped",
+          "refId": "C"
+        },
+        {
+          "expr": "rate(expiry_extend_error_total{application=\"urlshortener\"}[1m])",
+          "legendFormat": "error",
+          "refId": "D"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+      }
+    }
+
+  ],
+  "refresh": "5s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["urlshortener", "load-testing"],
+  "templating": { "list": [] },
+  "time": { "from": "now-30m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "URL Shortener — Business",
+  "uid": "urlshortener-business",
+  "version": 1
+}
+

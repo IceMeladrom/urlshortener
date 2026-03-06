@@ -31,3 +31,11 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### My utilities ###
+merge_files.py
+my_program_data_in_one_file.txt
+
+### Load test utils ###
+load-tests/report.html
+load-tests/shortcodes.txt
