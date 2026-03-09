@@ -110,7 +110,7 @@
             "steps": [
               { "color": "green",  "value": null },
               { "color": "yellow", "value": 50   },
-              { "color": "red",    "value": 100  }
+              { "color": "red",    "value": 150  }
             ]
           }
         },
@@ -217,7 +217,7 @@
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
       "id": 20,
-      "title": "Латентность — GET /{shortCode}",
+      "title": "Задержка — GET /{shortCode}",
       "type": "row"
     },
 
@@ -320,7 +320,7 @@
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
       "id": 30,
-      "title": "Латентность — POST /shorten",
+      "title": "Задержка — POST /shorten",
       "type": "row"
     },
 
