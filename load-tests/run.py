@@ -6,13 +6,14 @@ import argparse
 import os
 import random
 import shutil
+import socket
 import subprocess
 import sys
 import threading
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from urllib.parse import urlparse, urlunparse
 
 
@@ -252,6 +253,36 @@ def psql_command(args: argparse.Namespace) -> List[str]:
     ]
 
 
+def postgres_connection_target(args: argparse.Namespace) -> Optional[Tuple[str, int]]:
+    if args.postgres_dsn:
+        parsed = urlparse(args.postgres_dsn)
+        if parsed.hostname:
+            return parsed.hostname, parsed.port or 5432
+        return None
+
+    return args.pg_host or infer_pg_host(args.api_base), args.pg_port
+
+
+def check_postgres_tcp(args: argparse.Namespace) -> None:
+    target = postgres_connection_target(args)
+    if target is None:
+        return
+
+    host, port = target
+    try:
+        with socket.create_connection((host, port), timeout=args.pg_connect_timeout):
+            return
+    except OSError as exc:
+        raise RuntimeError(
+            f"PostgreSQL недоступен по TCP {host}:{port} за {args.pg_connect_timeout} с.\n"
+            "Проверьте на сервере с приложением:\n"
+            "1. Выполнен ли запуск после очистки Docker: docker compose up -d --build\n"
+            "2. Опубликован ли порт PostgreSQL: docker ps должен показывать 0.0.0.0:5432->5432/tcp для shortener-db\n"
+            "3. Разрешает ли firewall входящие TCP-подключения на порт 5432\n"
+            f"Исходная ошибка: {exc}"
+        ) from exc
+
+
 def mask_postgres_dsn(value: str) -> str:
     parsed = urlparse(value)
     if not parsed.password or not parsed.hostname:
@@ -276,6 +307,7 @@ def safe_command_text(command: List[str], args: argparse.Namespace) -> str:
 
 def prepare_with_postgres(args: argparse.Namespace, codes_path: Path, popular_codes_path: Path) -> None:
     check_binary(args.psql_bin, "psql не найден в PATH. Установите PostgreSQL client или используйте PREPARE_MODE=docker на сервере.")
+    check_postgres_tcp(args)
 
     command = psql_command(args) + [
         "-v",
@@ -289,6 +321,7 @@ def prepare_with_postgres(args: argparse.Namespace, codes_path: Path, popular_co
     print(f"Команда подготовки: {safe_command_text(command, args)}")
 
     env = os.environ.copy()
+    env["PGCONNECT_TIMEOUT"] = str(args.pg_connect_timeout)
     if args.pg_password:
         env["PGPASSWORD"] = args.pg_password
 
@@ -426,6 +459,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--pg-user", default=os.environ.get("PGUSER", "postgres"))
     parser.add_argument("--pg-password", default=os.environ.get("PGPASSWORD", ""))
     parser.add_argument("--pg-database", default=os.environ.get("PGDATABASE", "shortener"))
+    parser.add_argument("--pg-connect-timeout", type=int, default=env_int("PGCONNECT_TIMEOUT", 5))
 
     parser.add_argument("--db-container", default=os.environ.get("DB_CONTAINER", "shortener-db"))
     parser.add_argument("--redis-container", default=os.environ.get("REDIS_CONTAINER", "shortener-redis"))
@@ -443,6 +477,8 @@ def validate_args(args: argparse.Namespace) -> None:
         raise RuntimeError("POPULAR_PERCENT не может быть отрицательным")
     if args.pg_port < 1:
         raise RuntimeError("PGPORT должен быть больше 0")
+    if args.pg_connect_timeout < 1:
+        raise RuntimeError("PGCONNECT_TIMEOUT должен быть больше 0")
 
 
 def main() -> int:
