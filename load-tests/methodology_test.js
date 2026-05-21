@@ -3,25 +3,27 @@ import { check } from 'k6';
 import { SharedArray } from 'k6/data';
 import exec from 'k6/execution';
 
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080/api/v1';
+const BASE_URL = normalizeBaseUrl(__ENV.BASE_URL || 'http://localhost:8080/api/v1');
 const TEST_TYPE = __ENV.SCENARIO || 'nominal';
 const WARMUP_DURATION = __ENV.WARMUP_DURATION || '1m';
 const WARMUP_RATE = Number(__ENV.WARMUP_RATE || 500);
+const CODES_FILE = __ENV.CODES_FILE || './shortcodes.txt';
+const POPULAR_CODES_FILE = __ENV.POPULAR_CODES_FILE || './shortcodes_popular.txt';
 
 const shortCodes = new SharedArray('shortcodes', function () {
-    return open('./shortcodes.txt').split('\n').map(c => c.trim()).filter(Boolean);
+    return open(CODES_FILE).split('\n').map(c => c.trim()).filter(Boolean);
 });
 
 const popularCodes = new SharedArray('popular-shortcodes', function () {
     try {
-        return open('./shortcodes_popular.txt').split('\n').map(c => c.trim()).filter(Boolean);
+        return open(POPULAR_CODES_FILE).split('\n').map(c => c.trim()).filter(Boolean);
     } catch (e) {
         return [];
     }
 });
 
 if (shortCodes.length === 0) {
-    throw new Error('Файл shortcodes.txt пуст');
+    throw new Error(`Файл ${CODES_FILE} пуст`);
 }
 
 let readStages = [];
@@ -184,4 +186,12 @@ function chooseCode() {
         return popularCodes[Math.floor(Math.random() * popularCodes.length)];
     }
     return shortCodes[Math.floor(Math.random() * shortCodes.length)];
+}
+
+function normalizeBaseUrl(rawUrl) {
+    const trimmed = rawUrl.trim().replace(/\/+$/, '');
+    if (trimmed.endsWith('/api/v1')) {
+        return trimmed;
+    }
+    return `${trimmed}/api/v1`;
 }
