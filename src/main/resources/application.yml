@@ -58,7 +58,8 @@ management:
 
 app:
   link-ttl-days: 7
-  extend-threshold-minutes: 60
+  access-flush-interval-ms: 30000
+  redis-probe-interval-ms: 5000
   cleanup-interval-ms: 3600000
 
 logging:

@@ -17,19 +17,19 @@
   "id": null,
   "links": [
     {
-      "title": "HTTP",
+      "title": "Запросы",
       "url": "/d/urlshortener-http",
       "type": "link",
       "targetBlank": false
     },
     {
-      "title": "Business",
+      "title": "Прикладные метрики",
       "url": "/d/urlshortener-business",
       "type": "link",
       "targetBlank": false
     },
     {
-      "title": "Infrastructure",
+      "title": "Инфраструктура",
       "url": "/d/urlshortener-infra",
       "type": "link",
       "targetBlank": false
@@ -75,7 +75,7 @@
       "id": 3,
       "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
       "type": "stat",
-      "title": "Redis",
+      "title": "Состояние Redis",
       "description": "1 = UP, 0 = DOWN",
       "fieldConfig": {
         "defaults": {
@@ -117,7 +117,7 @@
       "id": 4,
       "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
       "type": "stat",
-      "title": "CPU процесса",
+      "title": "Процессор приложения",
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
@@ -150,7 +150,7 @@
       "id": 5,
       "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
       "type": "stat",
-      "title": "Heap используется",
+      "title": "Использование кучи",
       "description": "Жёлтый > 350MB, красный > 460MB (из 512MB лимита)",
       "fieldConfig": {
         "defaults": {
@@ -216,7 +216,7 @@
       "id": 7,
       "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
       "type": "stat",
-      "title": "GC паузы (rate)",
+      "title": "Паузы сборщика мусора",
       "description": "Количество GC-пауз в секунду. Жёлтый > 5/s, красный > 15/s",
       "fieldConfig": {
         "defaults": {
@@ -250,7 +250,7 @@
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
       "id": 10,
-      "title": "JVM — динамика",
+      "title": "Виртуальная машина Java",
       "type": "row"
     },
 
@@ -258,7 +258,7 @@
       "id": 11,
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
       "type": "timeseries",
-      "title": "Heap — используется / выделено",
+      "title": "Куча — используется / выделено",
       "fieldConfig": {
         "defaults": {
           "unit": "bytes",
@@ -301,7 +301,7 @@
       "id": 12,
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
       "type": "timeseries",
-      "title": "CPU процесса",
+      "title": "Процессор приложения",
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
@@ -328,7 +328,7 @@
       "id": 13,
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
       "type": "timeseries",
-      "title": "JVM потоки",
+      "title": "Потоки виртуальной машины Java",
       "fieldConfig": {
         "defaults": {
           "custom": { "lineInterpolation": "smooth", "showPoints": "never" }
@@ -377,7 +377,7 @@
       "id": 14,
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
       "type": "timeseries",
-      "title": "GC паузы — длительность (p99)",
+      "title": "Паузы сборщика мусора — 99-й процентиль",
       "fieldConfig": {
         "defaults": {
           "unit": "s",
@@ -406,8 +406,7 @@
   "time": { "from": "now-30m", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
-  "title": "URL Shortener — Overview",
+  "title": "Сервис коротких ссылок — обзор",
   "uid": "urlshortener-overview",
   "version": 1
 }
-

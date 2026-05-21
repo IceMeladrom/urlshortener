@@ -17,19 +17,19 @@
   "id": null,
   "links": [
     {
-      "title": "Overview",
+      "title": "Обзор",
       "url": "/d/urlshortener-overview",
       "type": "link",
       "targetBlank": false
     },
     {
-      "title": "Business",
+      "title": "Прикладные метрики",
       "url": "/d/urlshortener-business",
       "type": "link",
       "targetBlank": false
     },
     {
-      "title": "Infrastructure",
+      "title": "Инфраструктура",
       "url": "/d/urlshortener-infra",
       "type": "link",
       "targetBlank": false
@@ -49,7 +49,7 @@
       "id": 2,
       "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
       "type": "stat",
-      "title": "RPS — GET /{shortCode}",
+      "title": "Запросы в секунду — чтение",
       "fieldConfig": {
         "defaults": {
           "unit": "reqps",
@@ -74,7 +74,7 @@
       "id": 3,
       "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
       "type": "stat",
-      "title": "RPS — POST /shorten",
+      "title": "Запросы в секунду — создание",
       "fieldConfig": {
         "defaults": {
           "unit": "reqps",
@@ -99,7 +99,7 @@
       "id": 4,
       "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
       "type": "stat",
-      "title": "p95 — GET /{shortCode}",
+      "title": "95-й процентиль — чтение",
       "description": "Жёлтый > 50ms, красный > 100ms",
       "fieldConfig": {
         "defaults": {
@@ -167,7 +167,7 @@
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
       "id": 10,
-      "title": "RPS",
+      "title": "Запросы в секунду",
       "type": "row"
     },
 
@@ -175,7 +175,7 @@
       "id": 11,
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 6 },
       "type": "timeseries",
-      "title": "RPS по эндпоинтам",
+      "title": "Запросы в секунду по адресам",
       "fieldConfig": {
         "defaults": {
           "unit": "reqps",
@@ -225,7 +225,7 @@
       "id": 21,
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
       "type": "timeseries",
-      "title": "GET /{shortCode} — p95 и p99",
+      "title": "Чтение — 95-й и 99-й процентили",
       "fieldConfig": {
         "defaults": {
           "unit": "ms",
@@ -267,7 +267,7 @@
       "id": 22,
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
       "type": "timeseries",
-      "title": "GET /{shortCode} — распределение по статусам",
+      "title": "Чтение — распределение по состояниям ответа",
       "fieldConfig": {
         "defaults": {
           "unit": "reqps",
@@ -328,7 +328,7 @@
       "id": 31,
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
       "type": "timeseries",
-      "title": "POST /shorten — p95 и p99",
+      "title": "Создание — 95-й и 99-й процентили",
       "fieldConfig": {
         "defaults": {
           "unit": "ms",
@@ -370,7 +370,7 @@
       "id": 32,
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
       "type": "timeseries",
-      "title": "POST /shorten — распределение по статусам",
+      "title": "Создание — распределение по состояниям ответа",
       "fieldConfig": {
         "defaults": {
           "unit": "reqps",
@@ -495,7 +495,7 @@
   "time": { "from": "now-30m", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
-  "title": "URL Shortener — HTTP",
+  "title": "Сервис коротких ссылок — запросы",
   "uid": "urlshortener-http",
   "version": 1
 }

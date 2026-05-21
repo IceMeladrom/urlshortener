@@ -18,10 +18,17 @@ public class GlobalExceptionHandler {
         String message = ex.getBindingResult().getFieldErrors().stream()
                 .map(e -> e.getField() + ": " + e.getDefaultMessage())
                 .findFirst()
-                .orElse("Ошибка валидации");
+                .orElse("Ошибка проверки");
 
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, message);
-        problemDetail.setTitle("Validation Error");
+        problemDetail.setTitle("Ошибка проверки");
+        return problemDetail;
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ProblemDetail handleIllegalArgument(IllegalArgumentException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        problemDetail.setTitle("Ошибка проверки");
         return problemDetail;
     }
 
@@ -29,15 +36,18 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleIllegalState(IllegalStateException ex) {
         log.error("IllegalStateException: {}", ex.getMessage());
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
-        problemDetail.setTitle("Server State Error");
+        problemDetail.setTitle("Ошибка состояния сервера");
         return problemDetail;
     }
 
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGeneric(Exception ex) {
         log.error("Необработанное исключение", ex);
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "Внутренняя ошибка сервера");
-        problemDetail.setTitle("Internal Server Error");
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Внутренняя ошибка сервера"
+        );
+        problemDetail.setTitle("Внутренняя ошибка сервера");
         return problemDetail;
     }
 }

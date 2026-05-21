@@ -17,19 +17,19 @@
   "id": null,
   "links": [
     {
-      "title": "Overview",
+      "title": "Обзор",
       "url": "/d/urlshortener-overview",
       "type": "link",
       "targetBlank": false
     },
     {
-      "title": "HTTP",
+      "title": "Запросы",
       "url": "/d/urlshortener-http",
       "type": "link",
       "targetBlank": false
     },
     {
-      "title": "Business",
+      "title": "Прикладные метрики",
       "url": "/d/urlshortener-business",
       "type": "link",
       "targetBlank": false
@@ -49,7 +49,7 @@
       "id": 2,
       "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
       "type": "stat",
-      "title": "HikariCP — активные соединения",
+      "title": "Пул БД — активные соединения",
       "description": "Жёлтый > 15, красный > 18 (из 20 максимум)",
       "fieldConfig": {
         "defaults": {
@@ -83,7 +83,7 @@
       "id": 3,
       "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
       "type": "stat",
-      "title": "HikariCP — ожидают соединения",
+      "title": "Пул БД — ожидают соединения",
       "description": "Должно быть 0. Красный > 3",
       "fieldConfig": {
         "defaults": {
@@ -167,7 +167,7 @@
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
       "id": 10,
-      "title": "HikariCP — пул соединений к БД",
+      "title": "Пул соединений к БД",
       "type": "row"
     },
 
@@ -175,7 +175,7 @@
       "id": 11,
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
       "type": "timeseries",
-      "title": "HikariCP — active / idle / pending",
+      "title": "Пул соединений БД — занятые / свободные / ожидающие",
       "description": "pending > 0 означает что потоки ждут соединения — bottleneck БД",
       "fieldConfig": {
         "defaults": {
@@ -228,7 +228,7 @@
       "id": 12,
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
       "type": "timeseries",
-      "title": "HikariCP — время ожидания соединения (p95)",
+      "title": "Пул БД — время ожидания соединения, 95-й процентиль",
       "description": "Время которое поток проводит в очереди ожидания свободного соединения",
       "fieldConfig": {
         "defaults": {
@@ -254,7 +254,7 @@
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
       "id": 20,
-      "title": "Lettuce — пул соединений к Redis",
+      "title": "Соединения приложения к Redis",
       "type": "row"
     },
 
@@ -262,7 +262,7 @@
       "id": 21,
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
       "type": "timeseries",
-      "title": "Lettuce — active / idle соединения",
+      "title": "Соединения Redis — занятые / свободные",
       "fieldConfig": {
         "defaults": {
           "custom": { "lineInterpolation": "smooth", "showPoints": "never" }
@@ -303,7 +303,7 @@
       "id": 22,
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
       "type": "timeseries",
-      "title": "Lettuce — latency p95 (команды Redis)",
+      "title": "Команды Redis — 95-й процентиль задержки",
       "description": "Время выполнения команд Redis со стороны приложения",
       "fieldConfig": {
         "defaults": {
@@ -337,7 +337,7 @@
       "id": 31,
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 24 },
       "type": "timeseries",
-      "title": "Redis — память used / max",
+      "title": "Redis — память используется / предел",
       "fieldConfig": {
         "defaults": {
           "unit": "bytes",
@@ -423,7 +423,7 @@
       "id": 33,
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 24 },
       "type": "timeseries",
-      "title": "Redis — keyspace hit ratio",
+      "title": "Redis — доля успешных чтений",
       "description": "Должен коррелировать с cache hit ratio на Business дашборде",
       "fieldConfig": {
         "defaults": {
@@ -456,8 +456,7 @@
   "time": { "from": "now-30m", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
-  "title": "URL Shortener — Infrastructure",
+  "title": "Сервис коротких ссылок — инфраструктура",
   "uid": "urlshortener-infra",
   "version": 1
 }
-

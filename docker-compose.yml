@@ -13,6 +13,13 @@ services:
       - SPRING_DATASOURCE_PASSWORD=postgres
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
+      - SERVER_TOMCAT_ACCESSLOG_ENABLED=true
+      - SERVER_TOMCAT_ACCESSLOG_DIRECTORY=/dev
+      - SERVER_TOMCAT_ACCESSLOG_PREFIX=stdout
+      - SERVER_TOMCAT_ACCESSLOG_SUFFIX=
+      - SERVER_TOMCAT_ACCESSLOG_FILE_DATE_FORMAT=
+      - SERVER_TOMCAT_ACCESSLOG_BUFFERED=false
+      - SERVER_TOMCAT_ACCESSLOG_PATTERN=%h %l %u %t "%r" %s %b %D
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,51 +1,45 @@
 # URL Shortener
 
-Сервис сокращения ссылок с кэшированием, мониторингом и визуализацией метрик.
+Сервис сокращения ссылок на Java 21 и Spring Boot 4.
 
-Проект реализован на Java с использованием Spring Boot. Поддерживает создание коротких ссылок, переадресацию, продление
-срока действия, а также сбор и анализ метрик работы системы.
+Проект использует PostgreSQL как основное хранилище, Redis для быстрого чтения и временного накопления переходов, Prometheus и Grafana для наблюдения, k6 для нагрузочных испытаний.
 
+## Быстрый запуск
 
----
-
-## Запуск проекта
-
-### Требования
-
-- Docker
-- Docker Compose
-
-### Запуск
-
-В корне проекта выполнить:
-
-```bash
-docker-compose up -d --build
+```powershell
+docker compose up -d --build
 ```
 
----
+После запуска:
 
-## Возможности
+- приложение: `http://localhost:8080`;
+- состояние: `http://localhost:8080/actuator/health`;
+- Prometheus: `http://localhost:9090`;
+- Grafana: `http://localhost:3000`.
 
-- Создание короткой ссылки
-- Переадресация по короткому коду
-- Ограничение срока действия ссылки
-- Продление срока действия
-- Кэширование в Redis
-- Сбор метрик работы приложения
-- Мониторинг и визуализация состояния системы
+Учетная запись Grafana: `admin / admin`.
 
----
+## API
 
-## Технологический стек
+Создание короткой ссылки:
 
-- Java 21
-- Spring Boot 3
-- Spring Data
-- PostgreSQL
-- Redis
-- Micrometer
-- Prometheus
-- Grafana
-- Docker
-- Docker Compose
+```http
+POST /api/v1/shorten
+Content-Type: application/json
+```
+
+```json
+{
+  "url": "example.com"
+}
+```
+
+Переход по короткой ссылке:
+
+```http
+GET /api/v1/{shortCode}
+```
+
+## Документация
+
+Полное описание проекта находится в [docs/PROJECT_DOCUMENTATION.md](docs/PROJECT_DOCUMENTATION.md).

@@ -1,77 +1,129 @@
 #!/usr/bin/env bash
 
-# Строгий режим bash: скрипт прервется при любой ошибке, использовании необъявленной переменной или сбое в пайплайне
 set -euo pipefail
 
-# ANSI Цвета для красоты в терминале 🎨
-GREEN='\033[1;32m'
-YELLOW='\033[1;33m'
-RED='\033[1;31m'
-CYAN='\033[1;36m'
-NC='\033[0m' # No Color
+cd "$(dirname "$0")"
 
-# Конфигурация
-DB_CONTAINER="shortener-db"
-NUM_ROWS=50000
-CODES_FILE="shortcodes.txt"
+DB_CONTAINER="${DB_CONTAINER:-shortener-db}"
+REDIS_CONTAINER="${REDIS_CONTAINER:-shortener-redis}"
+NUM_ROWS="${NUM_ROWS:-100000}"
+CODES_FILE="${CODES_FILE:-shortcodes.txt}"
+POPULAR_CODES_FILE="${POPULAR_CODES_FILE:-shortcodes_popular.txt}"
+POPULAR_PERCENT="${POPULAR_PERCENT:-20}"
+BASE_URL="${BASE_URL:-http://localhost:8080/api/v1}"
+SCENARIO="${SCENARIO:-}"
+PREPARE_DATA="${PREPARE_DATA:-true}"
+FAILOVER_CONTROL="${FAILOVER_CONTROL:-true}"
+FAILOVER_STOP_AFTER="${FAILOVER_STOP_AFTER:-120}"
+FAILOVER_DOWN_SECONDS="${FAILOVER_DOWN_SECONDS:-180}"
+WARMUP_DURATION="${WARMUP_DURATION:-1m}"
+WARMUP_RATE="${WARMUP_RATE:-500}"
 
-echo -e "${CYAN}🚀 Подготовка стенда НИРС${NC}"
-echo "----------------------------------------------"
-
-# 1. Проверка доступности контейнера БД
-if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
-  echo -e "${RED}❌ Ошибка: Контейнер '$DB_CONTAINER' не запущен! Убедитесь, что docker compose up выполнен.${NC}"
+if ! command -v k6 >/dev/null 2>&1; then
+  echo "k6 не найден в PATH"
   exit 1
 fi
-echo -e "${GREEN}✅ Контейнер БД ($DB_CONTAINER) в сети.${NC}"
 
-# 2. Генерация тестовых данных (Seed)
-echo -e "${YELLOW}📦 Генерация $NUM_ROWS сидов в базу PostgreSQL (идемпотентно)...${NC}"
-docker exec -i "$DB_CONTAINER" psql -U postgres -d shortener -v num_rows="$NUM_ROWS" -q -A -f - < seed.sql > "$CODES_FILE"
-
-# Проверка, что файл не пустой
-if [ ! -s "$CODES_FILE" ]; then
-    echo -e "${RED}❌ Ошибка генерации: файл $CODES_FILE пуст.${NC}"
+if [ "$PREPARE_DATA" = "true" ]; then
+  if ! docker ps --format '{{.Names}}' | grep -qx "$DB_CONTAINER"; then
+    echo "Контейнер PostgreSQL '$DB_CONTAINER' не запущен"
     exit 1
+  fi
+
+  if ! docker ps --format '{{.Names}}' | grep -qx "$REDIS_CONTAINER"; then
+    echo "Контейнер Redis '$REDIS_CONTAINER' не запущен"
+    exit 1
+  fi
+
+  echo "Очищаю Redis"
+  docker exec "$REDIS_CONTAINER" redis-cli FLUSHALL >/dev/null
+
+  echo "Создаю $NUM_ROWS тестовых ссылок"
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d shortener -v num_rows="$NUM_ROWS" -q -A -f - < seed.sql > "$CODES_FILE"
+
+  if [ ! -s "$CODES_FILE" ]; then
+    echo "Файл $CODES_FILE пуст"
+    exit 1
+  fi
+
+  POPULAR_ROWS=$(( NUM_ROWS * POPULAR_PERCENT / 100 ))
+  if [ "$POPULAR_ROWS" -lt 1 ]; then
+    POPULAR_ROWS=1
+  fi
+
+  echo "Выбираю случайные популярные ссылки: $POPULAR_ROWS"
+  awk 'BEGIN { srand() } { print rand() "\t" $0 }' "$CODES_FILE" \
+    | sort -n \
+    | head -n "$POPULAR_ROWS" \
+    | cut -f2- > "$POPULAR_CODES_FILE"
+
+  echo "Прогреваю популярные ссылки"
+  BASE_URL="$BASE_URL" \
+  SCENARIO="warmup" \
+  WARMUP_DURATION="$WARMUP_DURATION" \
+  WARMUP_RATE="$WARMUP_RATE" \
+  K6_WEB_DASHBOARD=false \
+  k6 run --summary-export "summary_warmup.json" methodology_test.js
+
+  docker exec "$REDIS_CONTAINER" redis-cli DEL links:clicks:buffer links:expiry:buffer >/dev/null
 fi
 
-ACTUAL_ROWS=$(wc -l < "$CODES_FILE" | tr -d ' ')
-echo -e "${GREEN}✅ Сгенерировано кодов: $ACTUAL_ROWS${NC}"
-echo ""
+if [ -z "$SCENARIO" ]; then
+  echo "Выберите сценарий:"
+  echo "1 - номинальная нагрузка"
+  echo "2 - поиск предельной пропускной способности"
+  echo "3 - резкий скачок нагрузки"
+  echo "4 - длительная нагрузка"
+  echo "5 - отказ Redis"
+  read -r -p "Номер сценария: " MENU_CHOICE
+  case "$MENU_CHOICE" in
+    1) SCENARIO="nominal" ;;
+    2) SCENARIO="capacity" ;;
+    3) SCENARIO="stress" ;;
+    4) SCENARIO="soak" ;;
+    5) SCENARIO="failover" ;;
+    *) echo "Неизвестный сценарий"; exit 1 ;;
+  esac
+fi
 
-# 3. Интерактивное меню выбора сценария НИРС
-echo -e "${CYAN}==============================================${NC}"
-echo -e "${GREEN}ВЫБЕРИТЕ СЦЕНАРИЙ ИЗ МЕТОДИКИ НИРС:${NC}"
-echo "1 - Базовый (Номинальный - проверка работы в норме)"
-echo "2 - Поиск пропускной способности (Capacity - до отказа)"
-echo "3 - Стресс-тест (Спайк - резкий кратный скачок нагрузки)"
-echo "4 - Долговременный (Soak/Endurance - на 1 час)"
-echo -e "${CYAN}==============================================${NC}"
+STAMP="$(date +%Y%m%d_%H%M%S)"
+HTML_REPORT="report_${SCENARIO}_${STAMP}.html"
+JSON_REPORT="summary_${SCENARIO}_${STAMP}.json"
+FAILOVER_PID=""
 
-# Чтение пользовательского ввода с валидацией
-while true; do
-    read -p "Введите номер (1-4) и нажмите Enter: " MENU_CHOICE
-    case $MENU_CHOICE in
-        1) SCENARIO="nominal"; break;;
-        2) SCENARIO="capacity"; break;;
-        3) SCENARIO="stress"; break;;
-        4) SCENARIO="soak"; break;;
-        *) echo -e "${RED}⚠️ Ошибка: Выберите цифру от 1 до 4.${NC}";;
-    esac
-done
+cleanup() {
+  if [ -n "$FAILOVER_PID" ]; then
+    kill "$FAILOVER_PID" >/dev/null 2>&1 || true
+    wait "$FAILOVER_PID" >/dev/null 2>&1 || true
+  fi
+  if [ "$SCENARIO" = "failover" ] && [ "$FAILOVER_CONTROL" = "true" ]; then
+    docker start "$REDIS_CONTAINER" >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup EXIT
 
-echo ""
-echo -e "${RED}🔥 Начинаю бомбардировку! Запуск сценария: [ ${YELLOW}${SCENARIO^^} ${RED}]...${NC}"
+if [ "$SCENARIO" = "failover" ] && [ "$FAILOVER_CONTROL" = "true" ]; then
+  (
+    sleep "$FAILOVER_STOP_AFTER"
+    echo "Останавливаю Redis"
+    docker stop "$REDIS_CONTAINER" >/dev/null
+    sleep "$FAILOVER_DOWN_SECONDS"
+    echo "Запускаю Redis"
+    docker start "$REDIS_CONTAINER" >/dev/null
+  ) &
+  FAILOVER_PID="$!"
+elif [ "$SCENARIO" = "failover" ]; then
+  echo "Управление Redis отключено. Остановите и запустите Redis вручную во время теста."
+fi
 
-# 4. Настройка переменных среды и запуск k6
-export K6_WEB_DASHBOARD=true
-export K6_WEB_DASHBOARD_EXPORT="report_${SCENARIO}.html"
-export BASE_URL="http://localhost:8080/api/v1"
-export SCENARIO=$SCENARIO
+echo "Запускаю сценарий: $SCENARIO"
+echo "Адрес приложения: $BASE_URL"
 
-# Запуск!
-k6 run methodology_test.js
+BASE_URL="$BASE_URL" \
+SCENARIO="$SCENARIO" \
+K6_WEB_DASHBOARD=true \
+K6_WEB_DASHBOARD_EXPORT="$HTML_REPORT" \
+k6 run --summary-export "$JSON_REPORT" methodology_test.js
 
-echo ""
-echo -e "${GREEN}🎉 Тест '$SCENARIO' успешно завершен.${NC}"
-echo -e "📄 Обязательно приложите HTML отчет к НИРС: ${YELLOW}report_${SCENARIO}.html${NC}"
+echo "Отчёт страницы: $HTML_REPORT"
+echo "Сводка: $JSON_REPORT"

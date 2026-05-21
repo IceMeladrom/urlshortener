@@ -5,15 +5,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
+import tools.jackson.databind.ObjectMapper;
+import ru.bmstu.dzhioev.urlshortener.dto.CachedLink;
 import ru.bmstu.dzhioev.urlshortener.entity.Link;
-import ru.bmstu.dzhioev.urlshortener.event.LinkAccessEvent;
 import ru.bmstu.dzhioev.urlshortener.repository.LinkRepository;
 
 import java.time.Instant;
@@ -21,8 +20,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,32 +33,38 @@ class LinkServiceTest {
     @Mock
     private ValueOperations<String, String> valueOperations;
     @Mock
-    private ApplicationEventPublisher eventPublisher;
+    private ObjectMapper objectMapper;
+    @Mock
+    private LinkAccessBuffer linkAccessBuffer;
 
     private LinkService linkService;
 
     @BeforeEach
-    void setUp() {
-        // Мокаем возвращаемое значение для redisTemplate.opsForValue() 
-        // leniency - убираем строгие проверки Mockito, так как не во всех тестах нужен кэш
+    void setUp() throws Exception {
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        lenient().when(objectMapper.writeValueAsString(any(CachedLink.class))).thenReturn("json");
 
         RedisHealthTracker tracker = new RedisHealthTracker(new SimpleMeterRegistry());
+        linkService = new LinkService(
+                linkRepository,
+                redisTemplate,
+                new SimpleMeterRegistry(),
+                tracker,
+                objectMapper,
+                linkAccessBuffer
+        );
 
-        linkService = new LinkService(linkRepository, redisTemplate, eventPublisher, new SimpleMeterRegistry(), tracker);
-
-        // Внедряем @Value ("app.link-ttl-days") через Reflection
         ReflectionTestUtils.setField(linkService, "linkTtlDays", 7L);
     }
 
     @Test
-    @DisplayName("Создание ссылки: нормализация URL и сохранение в БД")
+    @DisplayName("Создание ссылки: адрес без схемы принимается и сохраняется")
     void createLink_NewURL_NormalizesAndSaves() {
-        // Убрали http:// 
         String inputUrl = "google.com/search";
         String expectedNormalized = "http://google.com/search";
 
-        when(linkRepository.findByOriginalUrl(expectedNormalized)).thenReturn(Optional.empty());
+        when(linkRepository.findFirstByOriginalUrlAndExpiresAtAfterOrderByCreatedAtDesc(eq(expectedNormalized), any()))
+                .thenReturn(Optional.empty());
         when(linkRepository.save(any(Link.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Link result = linkService.createLink(inputUrl);
@@ -68,61 +72,53 @@ class LinkServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.getOriginalUrl()).isEqualTo(expectedNormalized);
         assertThat(result.getShortCode()).hasSize(7);
-
-        // Проверяем, что пытались положить свежую запись в Redis
-        verify(valueOperations).set(eq("link:" + result.getShortCode()), eq(expectedNormalized), eq(7L), eq(TimeUnit.DAYS));
+        verify(valueOperations).set(eq("link:" + result.getShortCode()), eq("json"), anyLong(), eq(TimeUnit.SECONDS));
     }
 
     @Test
-    @DisplayName("Получение URL: Cache HIT (есть в Redis)")
-    void getOriginalUrl_CacheHit_ReturnsUrlAndPublishesEvent() {
+    @DisplayName("Получение адреса: успешное чтение из Redis")
+    void getOriginalUrl_CacheHit_ReturnsUrlAndRecordsAccess() throws Exception {
         String shortCode = "mycode1";
         String originalUrl = "https://habr.com";
+        CachedLink cachedLink = new CachedLink(originalUrl, Instant.now().plusSeconds(3600));
 
-        when(valueOperations.get("link:" + shortCode)).thenReturn(originalUrl);
+        when(valueOperations.get("link:" + shortCode)).thenReturn("json");
+        when(objectMapper.readValue("json", CachedLink.class)).thenReturn(cachedLink);
 
         Optional<String> result = linkService.getOriginalUrl(shortCode);
 
         assertThat(result).isPresent().contains(originalUrl);
-
-        // Базу Дергать не должны были!
         verify(linkRepository, never()).findByShortCode(anyString());
-
-        // Event должен быть отправлен
-        ArgumentCaptor<LinkAccessEvent> eventCaptor = ArgumentCaptor.forClass(LinkAccessEvent.class);
-        verify(eventPublisher).publishEvent(eventCaptor.capture());
-        assertThat(eventCaptor.getValue().shortCode()).isEqualTo(shortCode);
+        verify(linkAccessBuffer).recordAccess(shortCode, originalUrl);
     }
 
     @Test
-    @DisplayName("Получение URL: Cache MISS, DB HIT (прогрев кэша)")
-    void getOriginalUrl_CacheMissDbHit_PopulatesCache() {
+    @DisplayName("Получение адреса: промах Redis и успешное чтение из PostgreSQL")
+    void getOriginalUrl_CacheMissDbHit_RecordsAccess() {
         String shortCode = "mycode1";
         String originalUrl = "https://habr.com";
         Link dbLink = Link.builder()
                 .shortCode(shortCode)
                 .originalUrl(originalUrl)
-                .expiresAt(Instant.now().plusSeconds(3600)) // Активная
+                .expiresAt(Instant.now().plusSeconds(3600))
                 .build();
 
-        when(valueOperations.get("link:" + shortCode)).thenReturn(null); // В кэше пусто
+        when(valueOperations.get("link:" + shortCode)).thenReturn(null);
         when(linkRepository.findByShortCode(shortCode)).thenReturn(Optional.of(dbLink));
 
         Optional<String> result = linkService.getOriginalUrl(shortCode);
 
         assertThat(result).isPresent().contains(originalUrl);
-
-        // Должны прогреть кэш
-        verify(valueOperations).set(eq("link:" + shortCode), eq(originalUrl), eq(7L), eq(TimeUnit.DAYS));
+        verify(linkAccessBuffer).recordAccess(shortCode, originalUrl);
     }
 
     @Test
-    @DisplayName("Получение URL: Просроченная ссылка в БД (возвращаем 404 и удаляем из кэша)")
+    @DisplayName("Получение адреса: просроченная ссылка из PostgreSQL не возвращается")
     void getOriginalUrl_DbHitButExpired_ReturnsEmpty() {
         String shortCode = "mycode1";
         Link expiredLink = Link.builder()
                 .shortCode(shortCode)
-                .expiresAt(Instant.now().minusSeconds(100)) // Просрочено!
+                .expiresAt(Instant.now().minusSeconds(100))
                 .build();
 
         when(valueOperations.get("link:" + shortCode)).thenReturn(null);
@@ -132,6 +128,6 @@ class LinkServiceTest {
 
         assertThat(result).isEmpty();
         verify(redisTemplate).delete("link:" + shortCode);
+        verifyNoInteractions(linkAccessBuffer);
     }
 }
-

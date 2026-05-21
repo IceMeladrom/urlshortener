@@ -7,7 +7,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: High HTTP 5xx error rate (>1%)
+          summary: Доля ошибок 5xx выше 1%
 
       - alert: HighRedisErrors
         expr: rate(redis_errors_total[1m]) > 0.1
@@ -15,7 +15,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: Redis errors rate > 0.1/s
+          summary: Частота ошибок Redis выше 0.1 в секунду
 
       - alert: HighCpuUsage
         expr: avg by (instance) (rate(process_cpu_seconds_total[5m])) > 0.8
@@ -23,4 +23,4 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: High CPU usage
+          summary: Высокая загрузка процессора

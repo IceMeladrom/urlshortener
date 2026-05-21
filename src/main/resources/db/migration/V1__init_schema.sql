@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS links (
 );
 
 -- уникальность оригинального URL обеспечивает идемпотентность создания короткой ссылки
-CREATE UNIQUE INDEX IF NOT EXISTS uq_original_url ON links(original_url);
+CREATE INDEX IF NOT EXISTS idx_original_url ON links(original_url);
 
 CREATE INDEX IF NOT EXISTS idx_short_code ON links(short_code);
 CREATE INDEX IF NOT EXISTS idx_expires_at ON links(expires_at);

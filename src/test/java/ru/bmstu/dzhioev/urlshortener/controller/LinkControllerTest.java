@@ -28,7 +28,7 @@ class LinkControllerTest {
     private LinkService linkService;
 
     @Test
-    @DisplayName("POST /shorten - Успешное создание ссылки (201 Created)")
+    @DisplayName("POST /shorten: успешное создание ссылки")
     void shorten_ValidUrl_Returns201AndCode() throws Exception {
         Link mockLink = new Link();
         mockLink.setShortCode("abc123X");
@@ -50,25 +50,27 @@ class LinkControllerTest {
     }
 
     @Test
-    @DisplayName("POST /shorten - Невалидный URL (400 Bad Request)")
+    @DisplayName("POST /shorten: неверный адрес возвращает 400")
     void shorten_InvalidUrl_Returns400() throws Exception {
+        when(linkService.createLink("not-a-valid-url"))
+                .thenThrow(new IllegalArgumentException("Неверный формат URL"));
+
         String requestBody = """
                 {
                     "url": "not-a-valid-url"
                 }
                 """;
 
-        // Ожидаем срабатывания GlobalExceptionHandler
         mockMvc.perform(post("/api/v1/shorten")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Validation Error"))
-                .andExpect(jsonPath("$.detail").value("url: Неверный формат URL"));
+                .andExpect(jsonPath("$.title").value("Ошибка проверки"))
+                .andExpect(jsonPath("$.detail").value("Неверный формат URL"));
     }
 
     @Test
-    @DisplayName("GET /{shortCode} - Успешный редирект (302 Found)")
+    @DisplayName("GET /{shortCode}: успешное перенаправление")
     void redirect_ValidCode_Returns302() throws Exception {
         when(linkService.getOriginalUrl("abc123X"))
                 .thenReturn(Optional.of("https://habr.com/ru"));
@@ -79,7 +81,7 @@ class LinkControllerTest {
     }
 
     @Test
-    @DisplayName("GET /{shortCode} - Ссылка не найдена (404 Not Found)")
+    @DisplayName("GET /{shortCode}: ссылка не найдена")
     void redirect_InvalidCode_Returns404() throws Exception {
         when(linkService.getOriginalUrl("unknown")).thenReturn(Optional.empty());
 
@@ -87,4 +89,3 @@ class LinkControllerTest {
                 .andExpect(status().isNotFound());
     }
 }
-
