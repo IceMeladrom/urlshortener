@@ -7,7 +7,7 @@
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
-        "name": "Аннотации",
+        "name": "Аннотации и оповещения",
         "type": "dashboard"
       }
     ]
@@ -32,7 +32,7 @@
       "id": 2,
       "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
       "type": "stat",
-      "title": "Доля успешных чтений из Redis",
+      "title": "Доля попаданий в Redis",
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -50,7 +50,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(cache_hit_total{application=\"urlshortener\"}[1m])) / (sum(rate(cache_hit_total{application=\"urlshortener\"}[1m])) + sum(rate(cache_miss_total{application=\"urlshortener\"}[1m]))) * 100",
+          "expr": "sum(rate(cache_hit_total{application=\"urlshortener\"}[1m])) / clamp_min(sum(rate(cache_hit_total{application=\"urlshortener\"}[1m])) + sum(rate(cache_miss_total{application=\"urlshortener\"}[1m])), 0.000001) * 100",
           "instant": true,
           "refId": "A"
         }
@@ -71,7 +71,16 @@
               { "color": "red", "value": null },
               { "color": "green", "value": 1 }
             ]
-          }
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "Недоступен", "color": "red" },
+                "1": { "text": "Доступен", "color": "green" }
+              }
+            }
+          ]
         },
         "overrides": []
       },
@@ -85,7 +94,7 @@
       "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
       "type": "stat",
       "title": "Ошибки Redis за секунду",
-      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "fieldConfig": { "defaults": { "unit": "suffix: ошибок/с" }, "overrides": [] },
       "targets": [
         { "expr": "rate(redis_errors_total{application=\"urlshortener\"}[1m])", "instant": true, "refId": "A" }
       ],
@@ -95,10 +104,10 @@
       "id": 5,
       "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
       "type": "stat",
-      "title": "Переходы за секунду",
-      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "title": "Успешные переходы за секунду",
+      "fieldConfig": { "defaults": { "unit": "suffix: переходов/с" }, "overrides": [] },
       "targets": [
-        { "expr": "rate(link_access_buffered_total{application=\"urlshortener\"}[1m])", "instant": true, "refId": "A" }
+        { "expr": "sum(rate(http_server_requests_seconds_count{application=\"urlshortener\", uri=\"/api/v1/{shortCode}\", status=\"302\"}[1m]))", "instant": true, "refId": "A" }
       ],
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" }
     },
@@ -116,7 +125,7 @@
       "title": "Размер накопителей",
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
       "targets": [
-        { "expr": "link_click_buffer_size{application=\"urlshortener\"}", "legendFormat": "клики", "refId": "A" },
+        { "expr": "link_click_buffer_size{application=\"urlshortener\"}", "legendFormat": "переходы", "refId": "A" },
         { "expr": "link_expiry_buffer_size{application=\"urlshortener\"}", "legendFormat": "продление срока", "refId": "B" }
       ]
     },
@@ -125,9 +134,9 @@
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
       "type": "timeseries",
       "title": "Запись накопленных данных за секунду",
-      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "fieldConfig": { "defaults": { "unit": "suffix: записей/с" }, "overrides": [] },
       "targets": [
-        { "expr": "rate(link_click_flushed_total{application=\"urlshortener\"}[1m])", "legendFormat": "клики", "refId": "A" },
+        { "expr": "rate(link_click_flushed_total{application=\"urlshortener\"}[1m])", "legendFormat": "переходы", "refId": "A" },
         { "expr": "rate(link_expiry_flushed_total{application=\"urlshortener\"}[1m])", "legendFormat": "продления срока", "refId": "B" }
       ]
     },
@@ -136,7 +145,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
       "type": "timeseries",
       "title": "Ошибки записи накопленных данных",
-      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "fieldConfig": { "defaults": { "unit": "suffix: ошибок/с" }, "overrides": [] },
       "targets": [
         { "expr": "rate(link_buffer_flush_errors_total{application=\"urlshortener\"}[1m])", "legendFormat": "ошибки", "refId": "A" }
       ]
@@ -146,10 +155,10 @@
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
       "type": "timeseries",
       "title": "95-й процентиль длительности записи",
-      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "fieldConfig": { "defaults": { "unit": "suffix: мс" }, "overrides": [] },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(link_buffer_flush_duration_seconds_bucket{application=\"urlshortener\"}[1m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(link_buffer_flush_duration_seconds_bucket{application=\"urlshortener\"}[1m])) by (le)) * 1000",
           "legendFormat": "95-й процентиль",
           "refId": "A"
         }
@@ -159,7 +168,7 @@
   "refresh": "5s",
   "schemaVersion": 39,
   "style": "dark",
-  "tags": ["urlshortener"],
+  "tags": ["короткие-ссылки"],
   "templating": { "list": [] },
   "time": { "from": "now-15m", "to": "now" },
   "timepicker": {},

@@ -55,10 +55,13 @@ management:
       percentiles-histogram:
         http.server.requests: true
         jvm.gc.pause: true
+        hikaricp.connections.acquire: true
+        link.buffer.flush.duration: true
 
 app:
   link-ttl-days: 7
   access-flush-interval-ms: 30000
+  buffer-metrics-interval-ms: 5000
   redis-probe-interval-ms: 5000
   cleanup-interval-ms: 3600000
 

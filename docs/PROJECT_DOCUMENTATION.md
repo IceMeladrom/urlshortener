@@ -335,6 +335,7 @@ Location: https://example.com/page
 | `spring.data.redis.timeout` | `2s` | Предельное время операции Redis |
 | `app.link-ttl-days` | `7` | Срок действия ссылки в днях |
 | `app.access-flush-interval-ms` | `30000` | Интервал пакетной записи переходов и сроков |
+| `app.buffer-metrics-interval-ms` | `5000` | Интервал обновления метрик размера временных хранилищ Redis |
 | `app.redis-probe-interval-ms` | `5000` | Интервал проверки восстановления Redis |
 | `app.cleanup-interval-ms` | `3600000` | Интервал удаления просроченных ссылок |
 

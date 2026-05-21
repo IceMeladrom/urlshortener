@@ -7,7 +7,7 @@
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
-        "name": "Annotations & Alerts",
+        "name": "Аннотации и оповещения",
         "type": "dashboard"
       }
     ]
@@ -68,7 +68,7 @@
       },
       "targets": [
         {
-          "expr": "hikaricp_active_connections{application=\"urlshortener\"}",
+          "expr": "hikaricp_connections_active{application=\"urlshortener\"}",
           "instant": true,
           "refId": "A"
         }
@@ -102,7 +102,7 @@
       },
       "targets": [
         {
-          "expr": "hikaricp_pending_threads{application=\"urlshortener\"}",
+          "expr": "hikaricp_connections_pending{application=\"urlshortener\"}",
           "instant": true,
           "refId": "A"
         }
@@ -120,14 +120,14 @@
       "title": "Redis — используемая память",
       "fieldConfig": {
         "defaults": {
-          "unit": "bytes",
+          "unit": "suffix: МБ",
           "color": { "mode": "fixed", "fixedColor": "blue" }
         },
         "overrides": []
       },
       "targets": [
         {
-          "expr": "redis_memory_used_bytes{instance=\"redis-exporter:9121\"}",
+          "expr": "redis_memory_used_bytes{instance=\"redis-exporter:9121\"} / 1024 / 1024",
           "instant": true,
           "refId": "A"
         }
@@ -176,26 +176,26 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
       "type": "timeseries",
       "title": "Пул соединений БД — занятые / свободные / ожидающие",
-      "description": "pending > 0 означает что потоки ждут соединения — bottleneck БД",
+      "description": "Ожидающие > 0 означает, что потоки ждут соединения: это узкое место БД",
       "fieldConfig": {
         "defaults": {
           "custom": { "lineInterpolation": "smooth", "showPoints": "never" }
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "active" },
+            "matcher": { "id": "byName", "options": "занятые" },
             "properties": [
               { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }
             ]
           },
           {
-            "matcher": { "id": "byName", "options": "idle" },
+            "matcher": { "id": "byName", "options": "свободные" },
             "properties": [
               { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }
             ]
           },
           {
-            "matcher": { "id": "byName", "options": "pending" },
+            "matcher": { "id": "byName", "options": "ожидающие" },
             "properties": [
               { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }
             ]
@@ -204,23 +204,23 @@
       },
       "targets": [
         {
-          "expr": "hikaricp_active_connections{application=\"urlshortener\"}",
-          "legendFormat": "active",
+          "expr": "hikaricp_connections_active{application=\"urlshortener\"}",
+          "legendFormat": "занятые",
           "refId": "A"
         },
         {
-          "expr": "hikaricp_idle_connections{application=\"urlshortener\"}",
-          "legendFormat": "idle",
+          "expr": "hikaricp_connections_idle{application=\"urlshortener\"}",
+          "legendFormat": "свободные",
           "refId": "B"
         },
         {
-          "expr": "hikaricp_pending_threads{application=\"urlshortener\"}",
-          "legendFormat": "pending",
+          "expr": "hikaricp_connections_pending{application=\"urlshortener\"}",
+          "legendFormat": "ожидающие",
           "refId": "C"
         }
       ],
       "options": {
-        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+        "legend": { "displayMode": "list", "placement": "right" }
       }
     },
 
@@ -232,7 +232,7 @@
       "description": "Время которое поток проводит в очереди ожидания свободного соединения",
       "fieldConfig": {
         "defaults": {
-          "unit": "ms",
+          "unit": "suffix: мс",
           "custom": { "lineInterpolation": "smooth", "showPoints": "never" },
           "color": { "mode": "fixed", "fixedColor": "orange" }
         },
@@ -240,13 +240,13 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(hikaricp_connection_acquired_nanos_bucket{application=\"urlshortener\"}[1m])) by (le)) / 1e6",
-          "legendFormat": "p95 wait ms",
+          "expr": "histogram_quantile(0.95, sum(rate(hikaricp_connections_acquire_seconds_bucket{application=\"urlshortener\"}[1m])) by (le)) * 1000",
+          "legendFormat": "95-й процентиль ожидания",
           "refId": "A"
         }
       ],
       "options": {
-        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+        "legend": { "displayMode": "list", "placement": "right" }
       }
     },
 
@@ -254,7 +254,7 @@
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
       "id": 20,
-      "title": "Соединения приложения к Redis",
+      "title": "Команды приложения к Redis",
       "type": "row"
     },
 
@@ -262,40 +262,23 @@
       "id": 21,
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
       "type": "timeseries",
-      "title": "Соединения Redis — занятые / свободные",
+      "title": "Команды Redis со стороны приложения",
       "fieldConfig": {
         "defaults": {
+          "unit": "suffix: команд/с",
           "custom": { "lineInterpolation": "smooth", "showPoints": "never" }
         },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "active" },
-            "properties": [
-              { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "idle" },
-            "properties": [
-              { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "targets": [
         {
-          "expr": "lettuce_command_active_connections{application=\"urlshortener\"}",
-          "legendFormat": "active",
+          "expr": "topk(8, sum by (command) (rate(lettuce_command_completion_seconds_count{application=\"urlshortener\"}[1m])))",
+          "legendFormat": "{{command}}",
           "refId": "A"
-        },
-        {
-          "expr": "lettuce_command_idle_connections{application=\"urlshortener\"}",
-          "legendFormat": "idle",
-          "refId": "B"
         }
       ],
       "options": {
-        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+        "legend": { "displayMode": "list", "placement": "right" }
       }
     },
 
@@ -307,7 +290,7 @@
       "description": "Время выполнения команд Redis со стороны приложения",
       "fieldConfig": {
         "defaults": {
-          "unit": "ms",
+          "unit": "suffix: мс",
           "custom": { "lineInterpolation": "smooth", "showPoints": "never" },
           "color": { "mode": "fixed", "fixedColor": "purple" }
         },
@@ -316,12 +299,12 @@
       "targets": [
         {
           "expr": "histogram_quantile(0.95, sum(rate(lettuce_command_completion_seconds_bucket{application=\"urlshortener\"}[1m])) by (le)) * 1000",
-          "legendFormat": "p95 latency ms",
+          "legendFormat": "95-й процентиль задержки",
           "refId": "A"
         }
       ],
       "options": {
-        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+        "legend": { "displayMode": "list", "placement": "right" }
       }
     },
 
@@ -340,18 +323,18 @@
       "title": "Redis — память используется / предел",
       "fieldConfig": {
         "defaults": {
-          "unit": "bytes",
+          "unit": "suffix: МБ",
           "custom": { "lineInterpolation": "smooth", "showPoints": "never" }
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "used" },
+            "matcher": { "id": "byName", "options": "используется" },
             "properties": [
               { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }
             ]
           },
           {
-            "matcher": { "id": "byName", "options": "max" },
+            "matcher": { "id": "byName", "options": "предел" },
             "properties": [
               { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } },
               { "id": "custom.lineStyle", "value": { "dash": [4, 4], "fill": "dash" } }
@@ -361,18 +344,18 @@
       },
       "targets": [
         {
-          "expr": "redis_memory_used_bytes{instance=\"redis-exporter:9121\"}",
-          "legendFormat": "used",
+          "expr": "redis_memory_used_bytes{instance=\"redis-exporter:9121\"} / 1024 / 1024",
+          "legendFormat": "используется",
           "refId": "A"
         },
         {
-          "expr": "redis_memory_max_bytes{instance=\"redis-exporter:9121\"}",
-          "legendFormat": "max",
+          "expr": "redis_memory_max_bytes{instance=\"redis-exporter:9121\"} / 1024 / 1024",
+          "legendFormat": "предел",
           "refId": "B"
         }
       ],
       "options": {
-        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "last"] }
+        "legend": { "displayMode": "list", "placement": "right" }
       }
     },
 
@@ -380,22 +363,23 @@
       "id": 32,
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 24 },
       "type": "timeseries",
-      "title": "Redis — команды/с и клиенты",
+      "title": "Redis — команды и клиенты",
       "fieldConfig": {
         "defaults": {
-          "unit": "ops",
+          "unit": "suffix: команд/с",
           "custom": { "lineInterpolation": "smooth", "showPoints": "never" }
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "clients" },
+            "matcher": { "id": "byName", "options": "клиенты" },
             "properties": [
               { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "unit", "value": "short" },
               { "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }
             ]
           },
           {
-            "matcher": { "id": "byName", "options": "commands/s" },
+            "matcher": { "id": "byName", "options": "команды/с" },
             "properties": [
               { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }
             ]
@@ -405,17 +389,17 @@
       "targets": [
         {
           "expr": "rate(redis_commands_processed_total{instance=\"redis-exporter:9121\"}[1m])",
-          "legendFormat": "commands/s",
+          "legendFormat": "команды/с",
           "refId": "A"
         },
         {
           "expr": "redis_connected_clients{instance=\"redis-exporter:9121\"}",
-          "legendFormat": "clients",
+          "legendFormat": "клиенты",
           "refId": "B"
         }
       ],
       "options": {
-        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+        "legend": { "displayMode": "list", "placement": "right" }
       }
     },
 
@@ -424,7 +408,7 @@
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 24 },
       "type": "timeseries",
       "title": "Redis — доля успешных чтений",
-      "description": "Должен коррелировать с cache hit ratio на Business дашборде",
+      "description": "Должна коррелировать с долей попаданий в Redis на дашборде прикладных метрик",
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -437,13 +421,13 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(redis_keyspace_hits_total{instance=\"redis-exporter:9121\"}[1m])) / (sum(rate(redis_keyspace_hits_total{instance=\"redis-exporter:9121\"}[1m])) + sum(rate(redis_keyspace_misses_total{instance=\"redis-exporter:9121\"}[1m]))) * 100",
-          "legendFormat": "hit ratio %",
+          "expr": "sum(rate(redis_keyspace_hits_total{instance=\"redis-exporter:9121\"}[1m])) / clamp_min(sum(rate(redis_keyspace_hits_total{instance=\"redis-exporter:9121\"}[1m])) + sum(rate(redis_keyspace_misses_total{instance=\"redis-exporter:9121\"}[1m])), 0.000001) * 100",
+          "legendFormat": "доля попаданий, %",
           "refId": "A"
         }
       ],
       "options": {
-        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "last"] }
+        "legend": { "displayMode": "list", "placement": "right" }
       }
     }
 
@@ -451,7 +435,7 @@
   "refresh": "5s",
   "schemaVersion": 36,
   "style": "dark",
-  "tags": ["urlshortener", "load-testing"],
+  "tags": ["короткие-ссылки", "нагрузочное-тестирование"],
   "templating": { "list": [] },
   "time": { "from": "now-30m", "to": "now" },
   "timepicker": {},

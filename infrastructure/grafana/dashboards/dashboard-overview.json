@@ -7,7 +7,7 @@
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
-        "name": "Annotations & Alerts",
+        "name": "Аннотации и оповещения",
         "type": "dashboard"
       }
     ]
@@ -52,7 +52,7 @@
       "title": "Время работы",
       "fieldConfig": {
         "defaults": {
-          "unit": "s",
+          "unit": "suffix: с",
           "color": { "mode": "fixed", "fixedColor": "blue" }
         },
         "overrides": []
@@ -76,7 +76,7 @@
       "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
       "type": "stat",
       "title": "Состояние Redis",
-      "description": "1 = UP, 0 = DOWN",
+      "description": "1 = доступен, 0 = недоступен",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -91,8 +91,8 @@
             {
               "type": "value",
               "options": {
-                "0": { "text": "DOWN", "color": "red"   },
-                "1": { "text": "UP",   "color": "green" }
+                "0": { "text": "Недоступен", "color": "red" },
+                "1": { "text": "Доступен", "color": "green" }
               }
             }
           ]
@@ -151,17 +151,17 @@
       "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
       "type": "stat",
       "title": "Использование кучи",
-      "description": "Жёлтый > 350MB, красный > 460MB (из 512MB лимита)",
+      "description": "Жёлтый > 350 МБ, красный > 460 МБ (из лимита 512 МБ)",
       "fieldConfig": {
         "defaults": {
-          "unit": "bytes",
+          "unit": "suffix: МБ",
           "color": { "mode": "thresholds" },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               { "color": "green",  "value": null      },
-              { "color": "yellow", "value": 350000000 },
-              { "color": "red",    "value": 460000000 }
+              { "color": "yellow", "value": 350 },
+              { "color": "red",    "value": 460 }
             ]
           }
         },
@@ -169,7 +169,7 @@
       },
       "targets": [
         {
-          "expr": "sum(jvm_memory_used_bytes{application=\"urlshortener\", area=\"heap\"})",
+          "expr": "sum(jvm_memory_used_bytes{application=\"urlshortener\", area=\"heap\"}) / 1024 / 1024",
           "instant": true,
           "refId": "A"
         }
@@ -217,10 +217,10 @@
       "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
       "type": "stat",
       "title": "Паузы сборщика мусора",
-      "description": "Количество GC-пауз в секунду. Жёлтый > 5/s, красный > 15/s",
+      "description": "Количество пауз сборщика мусора в секунду. Жёлтый > 5 пауз/с, красный > 15 пауз/с",
       "fieldConfig": {
         "defaults": {
-          "unit": "cps",
+          "unit": "suffix: пауз/с",
           "color": { "mode": "thresholds" },
           "thresholds": {
             "mode": "absolute",
@@ -261,19 +261,19 @@
       "title": "Куча — используется / выделено",
       "fieldConfig": {
         "defaults": {
-          "unit": "bytes",
+          "unit": "suffix: МБ",
           "custom": { "lineInterpolation": "smooth", "showPoints": "never" }
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "committed" },
+            "matcher": { "id": "byName", "options": "выделено" },
             "properties": [
               { "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } },
               { "id": "custom.lineStyle", "value": { "dash": [4, 4], "fill": "dash" } }
             ]
           },
           {
-            "matcher": { "id": "byName", "options": "used" },
+            "matcher": { "id": "byName", "options": "используется" },
             "properties": [
               { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }
             ]
@@ -282,18 +282,18 @@
       },
       "targets": [
         {
-          "expr": "sum(jvm_memory_used_bytes{application=\"urlshortener\", area=\"heap\"})",
-          "legendFormat": "used",
+          "expr": "sum(jvm_memory_used_bytes{application=\"urlshortener\", area=\"heap\"}) / 1024 / 1024",
+          "legendFormat": "используется",
           "refId": "A"
         },
         {
-          "expr": "sum(jvm_memory_committed_bytes{application=\"urlshortener\", area=\"heap\"})",
-          "legendFormat": "committed",
+          "expr": "sum(jvm_memory_committed_bytes{application=\"urlshortener\", area=\"heap\"}) / 1024 / 1024",
+          "legendFormat": "выделено",
           "refId": "B"
         }
       ],
       "options": {
-        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+        "legend": { "displayMode": "list", "placement": "right" }
       }
     },
 
@@ -315,12 +315,12 @@
       "targets": [
         {
           "expr": "process_cpu_usage{application=\"urlshortener\"}",
-          "legendFormat": "cpu usage",
+          "legendFormat": "загрузка процессора",
           "refId": "A"
         }
       ],
       "options": {
-        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+        "legend": { "displayMode": "list", "placement": "right" }
       }
     },
 
@@ -335,15 +335,15 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "live" },
+            "matcher": { "id": "byName", "options": "активные" },
             "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
           },
           {
-            "matcher": { "id": "byName", "options": "daemon" },
+            "matcher": { "id": "byName", "options": "служебные" },
             "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }]
           },
           {
-            "matcher": { "id": "byName", "options": "peak" },
+            "matcher": { "id": "byName", "options": "пиковые" },
             "properties": [
               { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } },
               { "id": "custom.lineStyle", "value": { "dash": [4, 4], "fill": "dash" } }
@@ -354,22 +354,22 @@
       "targets": [
         {
           "expr": "jvm_threads_live_threads{application=\"urlshortener\"}",
-          "legendFormat": "live",
+          "legendFormat": "активные",
           "refId": "A"
         },
         {
           "expr": "jvm_threads_daemon_threads{application=\"urlshortener\"}",
-          "legendFormat": "daemon",
+          "legendFormat": "служебные",
           "refId": "B"
         },
         {
           "expr": "jvm_threads_peak_threads{application=\"urlshortener\"}",
-          "legendFormat": "peak",
+          "legendFormat": "пиковые",
           "refId": "C"
         }
       ],
       "options": {
-        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+        "legend": { "displayMode": "list", "placement": "right" }
       }
     },
 
@@ -380,20 +380,20 @@
       "title": "Паузы сборщика мусора — 99-й процентиль",
       "fieldConfig": {
         "defaults": {
-          "unit": "s",
+          "unit": "suffix: мс",
           "custom": { "lineInterpolation": "smooth", "showPoints": "never" }
         },
         "overrides": []
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.99, sum(rate(jvm_gc_pause_seconds_bucket{application=\"urlshortener\"}[1m])) by (le))",
-          "legendFormat": "p99 GC pause",
+          "expr": "histogram_quantile(0.99, sum(rate(jvm_gc_pause_seconds_bucket{application=\"urlshortener\"}[1m])) by (le)) * 1000",
+          "legendFormat": "99-й процентиль паузы сборщика мусора",
           "refId": "A"
         }
       ],
       "options": {
-        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+        "legend": { "displayMode": "list", "placement": "right" }
       }
     }
 
@@ -401,7 +401,7 @@
   "refresh": "5s",
   "schemaVersion": 36,
   "style": "dark",
-  "tags": ["urlshortener", "load-testing"],
+  "tags": ["короткие-ссылки", "нагрузочное-тестирование"],
   "templating": { "list": [] },
   "time": { "from": "now-30m", "to": "now" },
   "timepicker": {},

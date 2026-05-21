@@ -53,6 +53,26 @@ public class LinkAccessBuffer {
         meterRegistry.gauge("link.expiry.buffer.size", expiryBufferSize);
     }
 
+    @Scheduled(fixedDelayString = "${app.buffer-metrics-interval-ms:5000}")
+    public void refreshBufferSizes() {
+        if (!redisHealthTracker.isAvailable()) {
+            clickBufferSize.set(0);
+            expiryBufferSize.set(0);
+            return;
+        }
+
+        try {
+            Long clicks = redisTemplate.opsForHash().size(CLICK_BUFFER_KEY);
+            Long expiries = redisTemplate.opsForHash().size(EXPIRY_BUFFER_KEY);
+            clickBufferSize.set(clicks == null ? 0 : clicks);
+            expiryBufferSize.set(expiries == null ? 0 : expiries);
+        } catch (Exception e) {
+            meterRegistry.counter("redis.errors").increment();
+            redisHealthTracker.markUnavailable();
+            log.debug("Не удалось обновить размер накопителей: {}", e.getMessage());
+        }
+    }
+
     public void recordAccess(String shortCode, String originalUrl) {
         if (!redisHealthTracker.isAvailable()) {
             return;
