@@ -364,6 +364,7 @@ docker compose down
 | Приложение | `http://localhost:8080` |
 | Проверка состояния | `http://localhost:8080/actuator/health` |
 | Метрики приложения | `http://localhost:8080/actuator/prometheus` |
+| PostgreSQL | `localhost:5432` |
 | Prometheus | `http://localhost:9090` |
 | Grafana | `http://localhost:3000` |
 | Redis Exporter | `http://localhost:9121` |
@@ -419,11 +420,11 @@ mvn spring-boot:run
 Поддерживаются два режима подготовки данных:
 
 - `docker` - локальный режим для машины, на которой запущены контейнеры PostgreSQL и Redis. Скрипт очищает Redis, пересоздает тестовые данные через `seed.sql`, создает списки кодов и после прогрева очищает буферы Redis.
-- `api` - удаленный режим для отдельной машины генератора нагрузки. Скрипт создает ссылки через HTTP API приложения `POST /api/v1/shorten`, создает списки кодов и выполняет прогрев. В этом режиме не нужен доступ к Docker, PostgreSQL или Redis на сервере.
+- `postgres` - удаленный режим для отдельной машины генератора нагрузки. Скрипт подключается к PostgreSQL через `psql`, выполняет `seed.sql`, создает списки кодов и затем прогревает популярные ссылки через HTTP API приложения. В этом режиме не нужен Docker на машине генератора, но нужен сетевой доступ к PostgreSQL.
 
-Режим `auto` используется по умолчанию: при локальном `BASE_URL` (`localhost` или `127.0.0.1`) и найденных контейнерах PostgreSQL/Redis выбирается `docker`, иначе выбирается `api`.
+Режим `auto` используется по умолчанию: при локальном `BASE_URL` (`localhost` или `127.0.0.1`) и найденных контейнерах PostgreSQL/Redis выбирается `docker`, иначе выбирается `postgres`.
 
-Важно: удаленный режим `api` не очищает PostgreSQL и Redis напрямую. Он создает новые уникальные ссылки для текущего запуска. Если нужно строго пересоздать базу и очистить Redis, используйте локальный режим `docker` на сервере или выполните очистку вручную.
+Важно: удаленный режим `postgres` пересоздает данные в PostgreSQL, но не очищает Redis напрямую. Если нужно строго очистить Redis перед испытанием, используйте локальный режим `docker` на сервере или очистите Redis вручную.
 
 Распределение чтения в испытаниях: 80 процентов запросов идут по популярным ссылкам, 20 процентов - по остальным. Это ближе к реальному использованию, чем равномерный случайный выбор.
 
@@ -437,11 +438,16 @@ mvn spring-boot:run
 | `WARMUP_DURATION` | `1m` | Длительность прогрева |
 | `WARMUP_RATE` | `500` | Нагрузка прогрева |
 | `PREPARE_DATA` | `true` | Нужно ли готовить данные перед испытанием |
-| `PREPARE_MODE` | `auto` | Режим подготовки данных: `auto`, `docker` или `api` |
+| `PREPARE_MODE` | `auto` | Режим подготовки данных: `auto`, `docker` или `postgres` |
 | `SCENARIO` | выбирается в меню | Сценарий испытания |
 | `RUN_WARMUP` | `true` | Выполнять ли прогрев после подготовки данных |
-| `API_PREPARE_CONCURRENCY` | `32` | Число параллельных HTTP-запросов при подготовке через API |
-| `API_PREPARE_TIMEOUT` | `10` | Таймаут одного HTTP-запроса подготовки через API, секунд |
+| `PSQL_BIN` | `psql` | Команда клиента PostgreSQL |
+| `POSTGRES_DSN` | пусто | Строка подключения PostgreSQL. Если задана, имеет приоритет над `PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE` |
+| `PGHOST` | берется из `BASE_URL` | Адрес PostgreSQL в режиме `postgres` |
+| `PGPORT` | `5432` | Порт PostgreSQL |
+| `PGUSER` | `postgres` | Пользователь PostgreSQL |
+| `PGPASSWORD` | пусто | Пароль PostgreSQL |
+| `PGDATABASE` | `shortener` | База данных PostgreSQL |
 | `FAILOVER_CONTROL` | `auto` | Управлять ли остановкой Redis из скрипта. В `auto` управление включается только при доступном локальном контейнере Redis |
 | `FAILOVER_STOP_AFTER` | `120` | Через сколько секунд остановить Redis в сценарии отказа |
 | `FAILOVER_DOWN_SECONDS` | `180` | Сколько секунд держать Redis остановленным |
@@ -475,22 +481,29 @@ cd load-tests
 SCENARIO=nominal ./run.sh
 ```
 
-Если приложение запущено на этой же машине, но прямой доступ к контейнерам не нужен или недоступен, можно явно выбрать подготовку через HTTP API:
+Если приложение запущено на этой же машине, но прямой доступ к Docker не нужен или недоступен, можно явно выбрать подготовку через обычный клиент PostgreSQL:
 
 ```bash
 cd load-tests
-BASE_URL=http://localhost:8080 PREPARE_MODE=api SCENARIO=nominal ./run.sh
+BASE_URL=http://localhost:8080 PREPARE_MODE=postgres PGPASSWORD=postgres SCENARIO=nominal ./run.sh
 ```
 
 ### 13.5. Запуск с другой машины в локальной сети
 
-На машине с генератором нагрузки должны быть установлены Python 3.8 или новее и k6. Docker, psql и доступ к Redis/PostgreSQL не требуются, если используется режим `api`.
+На машине с генератором нагрузки должны быть установлены Python 3.8 или новее, k6 и клиент `psql`. Docker на машине генератора не требуется.
 
-Для подготовки данных через HTTP API и запуска сценария нужно указать адрес сервера с приложением:
+Для подготовки данных через PostgreSQL, прогрева через API и запуска сценария нужно указать адрес сервера с приложением и параметры подключения к PostgreSQL:
 
 ```bash
 cd load-tests
-BASE_URL=http://192.168.1.10:8080 PREPARE_MODE=api SCENARIO=nominal ./run.sh
+BASE_URL=http://192.168.1.10:8080 PREPARE_MODE=postgres PGHOST=192.168.1.10 PGPASSWORD=postgres SCENARIO=nominal ./run.sh
+```
+
+Если PostgreSQL доступен по строке подключения, можно использовать `POSTGRES_DSN`:
+
+```bash
+cd load-tests
+BASE_URL=http://192.168.1.10:8080 PREPARE_MODE=postgres POSTGRES_DSN=postgresql://postgres:postgres@192.168.1.10:5432/shortener SCENARIO=nominal ./run.sh
 ```
 
 Если данные уже подготовлены на сервере, можно отключить подготовку. В этом случае на машине генератора должны быть актуальные файлы `shortcodes.txt` и `shortcodes_popular.txt`:

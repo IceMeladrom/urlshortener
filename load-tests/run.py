@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import concurrent.futures
-import json
 import os
 import random
 import shutil
@@ -12,17 +10,15 @@ import subprocess
 import sys
 import threading
 import time
-import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Set, Tuple
-from urllib import error, request
+from typing import List, Optional
 from urllib.parse import urlparse, urlunparse
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 SCENARIOS = ("nominal", "capacity", "stress", "soak", "failover")
-PREPARE_MODES = ("auto", "docker", "api")
+PREPARE_MODES = ("auto", "docker", "postgres")
 
 
 def env_bool(name: str, default: bool) -> bool:
@@ -37,13 +33,6 @@ def env_int(name: str, default: int) -> int:
     if raw is None or raw.strip() == "":
         return default
     return int(raw)
-
-
-def env_float(name: str, default: float) -> float:
-    raw = os.environ.get(name)
-    if raw is None or raw.strip() == "":
-        return default
-    return float(raw)
 
 
 def bool_text(value: bool) -> str:
@@ -115,7 +104,7 @@ def select_prepare_mode(requested_mode: str, api_base: str, db_container: str, r
 
     if api_base_is_local(api_base) and docker_container_running(db_container) and docker_container_running(redis_container):
         return "docker"
-    return "api"
+    return "postgres"
 
 
 def select_scenario(scenario: str) -> str:
@@ -239,112 +228,96 @@ def prepare_with_docker(args: argparse.Namespace, codes_path: Path, popular_code
     write_popular_codes(codes_path, popular_codes_path, args.popular_percent)
 
 
-def post_shorten(api_base: str, original_url: str, timeout: float) -> str:
-    payload = json.dumps({"url": original_url}).encode("utf-8")
-    http_request = request.Request(
-        f"{api_base}/shorten",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-
-    try:
-        with request.urlopen(http_request, timeout=timeout) as response:
-            response_body = response.read().decode("utf-8")
-            if response.status not in (200, 201):
-                raise RuntimeError(f"HTTP {response.status}: {response_body[:300]}")
-    except error.HTTPError as exc:
-        response_body = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"HTTP {exc.code}: {response_body[:300]}") from exc
-    except error.URLError as exc:
-        raise RuntimeError(str(exc.reason)) from exc
-
-    try:
-        data = json.loads(response_body)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"Некорректный JSON в ответе: {response_body[:300]}") from exc
-
-    short_code = data.get("shortCode")
-    if not short_code:
-        raise RuntimeError(f"В ответе нет shortCode: {response_body[:300]}")
-    return str(short_code)
+def infer_pg_host(api_base: str) -> str:
+    hostname = urlparse(api_base).hostname
+    if not hostname:
+        raise RuntimeError("Не удалось определить PGHOST из BASE_URL")
+    return hostname
 
 
-def prepare_one_via_api(api_base: str, run_id: str, index: int, timeout: float) -> Tuple[int, str]:
-    original_url = f"example.test/load/{run_id}/{index}"
-    return index, post_shorten(api_base, original_url, timeout)
+def psql_command(args: argparse.Namespace) -> List[str]:
+    if args.postgres_dsn:
+        return [args.psql_bin, args.postgres_dsn]
+
+    return [
+        args.psql_bin,
+        "-h",
+        args.pg_host or infer_pg_host(args.api_base),
+        "-p",
+        str(args.pg_port),
+        "-U",
+        args.pg_user,
+        "-d",
+        args.pg_database,
+    ]
 
 
-def prepare_with_api(args: argparse.Namespace, codes_path: Path, popular_codes_path: Path) -> None:
-    print(f"Создаю {args.num_rows} тестовых ссылок через HTTP API")
-    print(f"Параллельность подготовки: {args.api_prepare_concurrency}")
-    print("Удаленная подготовка не очищает PostgreSQL и Redis напрямую")
+def mask_postgres_dsn(value: str) -> str:
+    parsed = urlparse(value)
+    if not parsed.password or not parsed.hostname:
+        return value
+
+    username = parsed.username or ""
+    hostname = parsed.hostname
+    port = f":{parsed.port}" if parsed.port else ""
+    userinfo = f"{username}:***@" if username else ""
+    netloc = f"{userinfo}{hostname}{port}"
+    return urlunparse(parsed._replace(netloc=netloc))
+
+
+def safe_command_text(command: List[str], args: argparse.Namespace) -> str:
+    masked = list(command)
+    if args.postgres_dsn:
+        masked = [mask_postgres_dsn(part) if part == args.postgres_dsn else part for part in masked]
+    if args.pg_password:
+        masked = [part.replace(args.pg_password, "***") for part in masked]
+    return " ".join(masked)
+
+
+def prepare_with_postgres(args: argparse.Namespace, codes_path: Path, popular_codes_path: Path) -> None:
+    check_binary(args.psql_bin, "psql не найден в PATH. Установите PostgreSQL client или используйте PREPARE_MODE=docker на сервере.")
+
+    command = psql_command(args) + [
+        "-v",
+        f"num_rows={args.num_rows}",
+        "-q",
+        "-A",
+        "-f",
+        "-",
+    ]
+    print(f"Создаю {args.num_rows} тестовых ссылок через PostgreSQL")
+    print(f"Команда подготовки: {safe_command_text(command, args)}")
+
+    env = os.environ.copy()
+    if args.pg_password:
+        env["PGPASSWORD"] = args.pg_password
 
     temp_codes = codes_path.with_name(codes_path.name + ".tmp")
-    completed = 0
-    errors: List[str] = []
-    run_id = datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:8]
-    next_index = 1
-
-    def submit_next(executor: concurrent.futures.Executor, pending: Set[concurrent.futures.Future]) -> int:
-        nonlocal next_index
-        if next_index > args.num_rows:
-            return next_index
-        current = next_index
-        next_index += 1
-        pending.add(
-            executor.submit(
-                prepare_one_via_api,
-                args.api_base,
-                run_id,
-                current,
-                args.api_prepare_timeout,
-            )
-        )
-        return next_index
-
     try:
-        with temp_codes.open("w", encoding="utf-8") as output:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=args.api_prepare_concurrency) as executor:
-                pending: Set[concurrent.futures.Future] = set()
-                for _ in range(min(args.api_prepare_concurrency, args.num_rows)):
-                    submit_next(executor, pending)
-
-                while pending:
-                    done, pending = concurrent.futures.wait(
-                        pending,
-                        return_when=concurrent.futures.FIRST_COMPLETED,
-                    )
-                    for future in done:
-                        try:
-                            _, short_code = future.result()
-                        except Exception as exc:  # noqa: BLE001 - выводим исходную ошибку HTTP/сети
-                            errors.append(str(exc))
-                            if len(errors) >= args.api_prepare_max_errors:
-                                for pending_future in pending:
-                                    pending_future.cancel()
-                                raise RuntimeError(
-                                    "Подготовка через API остановлена после ошибок: "
-                                    + "; ".join(errors[:3])
-                                ) from exc
-                            continue
-
-                        completed += 1
-                        output.write(short_code + "\n")
-                        if completed == args.num_rows or completed % max(1, args.num_rows // 10) == 0:
-                            print(f"Создано ссылок: {completed}/{args.num_rows}")
-                        submit_next(executor, pending)
-
-            if errors or completed != args.num_rows:
-                raise RuntimeError(
-                    f"Создано {completed}/{args.num_rows} ссылок. "
-                    f"Ошибок: {len(errors)}. Первая ошибка: {errors[0] if errors else 'нет'}"
-                )
+        with (SCRIPT_DIR / "seed.sql").open("rb") as stdin, temp_codes.open("wb") as stdout:
+            result = subprocess.run(
+                command,
+                cwd=SCRIPT_DIR,
+                stdin=stdin,
+                stdout=stdout,
+                stderr=subprocess.PIPE,
+                env=env,
+                check=False,
+            )
     except Exception:
         temp_codes.unlink(missing_ok=True)
         raise
 
+    if result.returncode != 0:
+        temp_codes.unlink(missing_ok=True)
+        stderr = result.stderr.decode("utf-8", errors="replace").strip()
+        raise RuntimeError(f"psql завершился с кодом {result.returncode}\n{stderr}")
+
     temp_codes.replace(codes_path)
+
+    if not codes_path.exists() or codes_path.stat().st_size == 0:
+        raise RuntimeError(f"Файл {codes_path} пуст")
+
     write_popular_codes(codes_path, popular_codes_path, args.popular_percent)
 
 
@@ -361,8 +334,8 @@ def run_prepare(args: argparse.Namespace, codes_path: Path, popular_codes_path: 
     print(f"Режим подготовки данных: {prepare_mode}")
     if prepare_mode == "docker":
         prepare_with_docker(args, codes_path, popular_codes_path)
-    elif prepare_mode == "api":
-        prepare_with_api(args, codes_path, popular_codes_path)
+    elif prepare_mode == "postgres":
+        prepare_with_postgres(args, codes_path, popular_codes_path)
     else:
         raise RuntimeError(f"Неизвестный режим подготовки данных: {prepare_mode}")
 
@@ -396,7 +369,7 @@ def run_prepare(args: argparse.Namespace, codes_path: Path, popular_codes_path: 
                 check=True,
             )
         else:
-            print("Буферы Redis после прогрева не очищены: удаленный HTTP-режим не имеет доступа к Redis")
+            print("Буферы Redis после прогрева не очищены: postgres-режим не управляет Redis")
 
 
 def should_control_failover(value: str, redis_container: str) -> bool:
@@ -446,6 +419,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--warmup-duration", default=os.environ.get("WARMUP_DURATION", "1m"))
     parser.add_argument("--warmup-rate", type=int, default=env_int("WARMUP_RATE", 500))
     parser.add_argument("--k6-bin", default=os.environ.get("K6_BIN", "k6"))
+    parser.add_argument("--psql-bin", default=os.environ.get("PSQL_BIN", "psql"))
+    parser.add_argument("--postgres-dsn", default=os.environ.get("POSTGRES_DSN", os.environ.get("DATABASE_URL", "")))
+    parser.add_argument("--pg-host", default=os.environ.get("PGHOST", ""))
+    parser.add_argument("--pg-port", type=int, default=env_int("PGPORT", 5432))
+    parser.add_argument("--pg-user", default=os.environ.get("PGUSER", "postgres"))
+    parser.add_argument("--pg-password", default=os.environ.get("PGPASSWORD", ""))
+    parser.add_argument("--pg-database", default=os.environ.get("PGDATABASE", "shortener"))
 
     parser.add_argument("--db-container", default=os.environ.get("DB_CONTAINER", "shortener-db"))
     parser.add_argument("--redis-container", default=os.environ.get("REDIS_CONTAINER", "shortener-redis"))
@@ -453,9 +433,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--failover-stop-after", type=int, default=env_int("FAILOVER_STOP_AFTER", 120))
     parser.add_argument("--failover-down-seconds", type=int, default=env_int("FAILOVER_DOWN_SECONDS", 180))
 
-    parser.add_argument("--api-prepare-concurrency", type=int, default=env_int("API_PREPARE_CONCURRENCY", 32))
-    parser.add_argument("--api-prepare-timeout", type=float, default=env_float("API_PREPARE_TIMEOUT", 10.0))
-    parser.add_argument("--api-prepare-max-errors", type=int, default=env_int("API_PREPARE_MAX_ERRORS", 10))
     return parser
 
 
@@ -464,12 +441,8 @@ def validate_args(args: argparse.Namespace) -> None:
         raise RuntimeError("NUM_ROWS должен быть больше 0")
     if args.popular_percent < 0:
         raise RuntimeError("POPULAR_PERCENT не может быть отрицательным")
-    if args.api_prepare_concurrency < 1:
-        raise RuntimeError("API_PREPARE_CONCURRENCY должен быть больше 0")
-    if args.api_prepare_timeout <= 0:
-        raise RuntimeError("API_PREPARE_TIMEOUT должен быть больше 0")
-    if args.api_prepare_max_errors < 1:
-        raise RuntimeError("API_PREPARE_MAX_ERRORS должен быть больше 0")
+    if args.pg_port < 1:
+        raise RuntimeError("PGPORT должен быть больше 0")
 
 
 def main() -> int:
